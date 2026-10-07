@@ -28,9 +28,6 @@ export const Incidents: React.FC = () => {
     addManualIncident, updateIncidentStatus 
   } = useOperationalState();
 
-  console.log('[INCIDENT DEBUG] incidents received by page:', incidents);
-  console.log('[INCIDENT DEBUG] incidents count:', incidents.length);
-
   // --- Search & Filters State ---
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('ALL');
