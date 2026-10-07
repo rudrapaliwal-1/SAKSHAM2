@@ -22,6 +22,7 @@ gsap.registerPlugin(ScrollTrigger);
 
 import { useTranslation } from 'react-i18next';
 import { DynamicText } from '../../components/ui/DynamicText';
+import { EmptyState } from '../../components/ui/SystemStates';
 import { useOperationalState, type DispatchMission } from '../../context/OperationalStateContext';
 
 const HISTORY_MISSIONS = [
@@ -497,31 +498,41 @@ export const Dispatch: React.FC = () => {
             </div>
             
             <div className={styles.missionList}>
-              {missions.map(m => {
-                const isActive = m.id === selectedMissionId;
-                return (
-                  <button
-                    key={m.id}
-                    className={`${styles.missionRow} ${isActive ? styles.missionRowActive : ''}`}
-                    onClick={() => setSelectedMissionId(m.id)}
-                  >
-                    <div className={styles.mrLeft}>
-                      <span className={styles.mrId}>{m.id}</span>
-                      <span className={`${styles.mrStatusBadge} ${styles['status_' + m.status]}`}>
-                        {m.status.replace(/_/g, ' ')}
-                      </span>
-                    </div>
-                    <div className={styles.mrDetails}>
-                      <span className={styles.mrTarget}>{m.destinationName.split(',')[0]}</span>
-                      <span className={styles.mrCargo}>{m.quantity.toLocaleString()} {m.unit} {m.resourceType}</span>
-                    </div>
-                    <div className={styles.mrRight}>
-                      <span className={styles.mrEtaLabel}>ETA</span>
-                      <span className={styles.mrEtaVal}>{m.etaMinutes > 0 ? `${m.etaMinutes}m` : 'ARRIVED'}</span>
-                    </div>
-                  </button>
-                );
-              })}
+              {missions.length === 0 ? (
+                <EmptyState
+                  title="No Active Dispatch Missions"
+                  description="All allocated demands have either completed delivery or require initial fleet dispatch assignment."
+                  iconType="check"
+                  actionLabel="+ Create New Dispatch"
+                  onAction={() => setShowCreatePanel(true)}
+                />
+              ) : (
+                missions.map(m => {
+                  const isActive = m.id === selectedMissionId;
+                  return (
+                    <button
+                      key={m.id}
+                      className={`${styles.missionRow} ${isActive ? styles.missionRowActive : ''}`}
+                      onClick={() => setSelectedMissionId(m.id)}
+                    >
+                      <div className={styles.mrLeft}>
+                        <span className={styles.mrId}>{m.id}</span>
+                        <span className={`${styles.mrStatusBadge} ${styles['status_' + m.status]}`}>
+                          {m.status.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <div className={styles.mrDetails}>
+                        <span className={styles.mrTarget}>{m.destinationName.split(',')[0]}</span>
+                        <span className={styles.mrCargo}>{m.quantity.toLocaleString()} {m.unit} {m.resourceType}</span>
+                      </div>
+                      <div className={styles.mrRight}>
+                        <span className={styles.mrEtaLabel}>ETA</span>
+                        <span className={styles.mrEtaVal}>{m.etaMinutes > 0 ? `${m.etaMinutes}m` : 'ARRIVED'}</span>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
 

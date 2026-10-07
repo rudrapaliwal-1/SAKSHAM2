@@ -206,6 +206,15 @@ export const MapView: React.FC<MapViewProps> = ({
     }
   }, [selectedVehicle, missions]);
 
+  const safeLngLat = (coords?: { lat?: number; lng?: number } | null): [number, number] => {
+    const lng = Number(coords?.lng);
+    const lat = Number(coords?.lat);
+    if (!isNaN(lng) && !isNaN(lat) && lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90) {
+      return [lng, lat];
+    }
+    return [77.2090, 28.6139]; // Safe Delhi Central fallback
+  };
+
   // Render Operational Markers on Map
   useEffect(() => {
     const map = mapRef.current;
@@ -252,7 +261,7 @@ export const MapView: React.FC<MapViewProps> = ({
         `);
 
         const marker = new maplibregl.Marker({ element: el })
-          .setLngLat([incident.coordinates.lng, incident.coordinates.lat])
+          .setLngLat(safeLngLat(incident.coordinates))
           .setPopup(popup)
           .addTo(map);
 
@@ -290,7 +299,7 @@ export const MapView: React.FC<MapViewProps> = ({
         `);
 
         const marker = new maplibregl.Marker({ element: el })
-          .setLngLat([demand.coordinates.lng, demand.coordinates.lat])
+          .setLngLat(safeLngLat(demand.coordinates))
           .setPopup(popup)
           .addTo(map);
 
@@ -328,7 +337,7 @@ export const MapView: React.FC<MapViewProps> = ({
         `);
 
         const marker = new maplibregl.Marker({ element: el })
-          .setLngLat([res.coordinates.lng, res.coordinates.lat])
+          .setLngLat(safeLngLat(res.coordinates))
           .setPopup(popup)
           .addTo(map);
 
@@ -371,7 +380,7 @@ export const MapView: React.FC<MapViewProps> = ({
         `);
 
         const marker = new maplibregl.Marker({ element: el })
-          .setLngLat([veh.location.lng, veh.location.lat])
+          .setLngLat(safeLngLat(veh.location))
           .setPopup(popup)
           .addTo(map);
 
@@ -406,7 +415,7 @@ export const MapView: React.FC<MapViewProps> = ({
         `);
 
         const marker = new maplibregl.Marker({ element: el })
-          .setLngLat([shelter.coordinates.lng, shelter.coordinates.lat])
+          .setLngLat(safeLngLat(shelter.coordinates))
           .setPopup(popup)
           .addTo(map);
 
@@ -440,7 +449,7 @@ export const MapView: React.FC<MapViewProps> = ({
         `);
 
         const marker = new maplibregl.Marker({ element: el })
-          .setLngLat([hosp.coordinates.lng, hosp.coordinates.lat])
+          .setLngLat(safeLngLat(hosp.coordinates))
           .setPopup(popup)
           .addTo(map);
 
@@ -469,12 +478,12 @@ export const MapView: React.FC<MapViewProps> = ({
             <span class="${styles.popupBadge} ${styles.badgeResponder}">${rsp.role} · ${rsp.status}</span>
             <h4 class="${styles.popupTitle}">${rsp.name}</h4>
             <p class="${styles.popupLoc}">${rsp.agency} · ${rsp.locationName}</p>
-            <p class="${styles.popupCapText}">Radio: ${rsp.contactRadio} · Unit: ${rsp.assignedUnit || 'Field Active'}</p>
+            <p class="${styles.popupCapText}">Radio: ${rsp.contactRadio || 'Alpha-1'} · Unit: ${rsp.assignedUnit || 'Field Active'}</p>
           </div>
         `);
 
         const marker = new maplibregl.Marker({ element: el })
-          .setLngLat([rsp.coordinates.lng, rsp.coordinates.lat])
+          .setLngLat(safeLngLat(rsp.coordinates))
           .setPopup(popup)
           .addTo(map);
 

@@ -18,6 +18,7 @@ import styles from './Delivery.module.css';
 import { PageGuideTrigger, PageGuidebook } from '../../components/ui/PageGuide';
 import { ShaderBackground } from '../../components/ui/ShaderBackground';
 import GradientBackground from '../../components/ui/noisy-gradient-backgrounds';
+import { EmptyState } from '../../components/ui/SystemStates';
 
 import { useOperationalState } from '../../context/OperationalStateContext';
 
@@ -412,34 +413,42 @@ export const Delivery: React.FC = () => {
           </div>
           
           <div className={styles.deliveryList}>
-            {deliveries.map(d => {
-              const isActive = d.id === selectedDelId;
-              const reqObj = requests.find(r => r.id === d.demandId);
-              return (
-                <button
-                  key={d.id}
-                  className={`${styles.deliveryRow} ${isActive ? styles.deliveryRowActive : ''}`}
-                  onClick={() => setSelectedDelId(d.id)}
-                >
-                  <div className={styles.drLeft}>
-                    <span className={styles.drId}>{d.id}</span>
-                    <span className={`${styles.drBadge} ${styles['status_' + d.status]}`}>
-                      {t(`status.${d.status}`) || d.status.replace(/_/g, ' ')}
-                    </span>
-                  </div>
-                  <div className={styles.drMiddle}>
-                    <span className={styles.drTarget}>{reqObj?.zoneName.split(',')[0]}</span>
-                    <span className={styles.drCargo}>{d.allocatedQty.toLocaleString()} {d.unit} {d.resourceType}</span>
-                  </div>
-                  <div className={styles.drRight}>
-                    <span className={styles.drActionText}>
-                      {d.status === 'VERIFIED' ? t('status.DELIVERED') : t('status.PENDING')}
-                    </span>
-                    <ArrowRight size={12} className={styles.drArrow} />
-                  </div>
-                </button>
-              );
-            })}
+            {deliveries.length === 0 ? (
+              <EmptyState
+                title="No Pending Deliveries"
+                description="All dispatched relief convoys have been reconciled and verified, or no active dispatches are currently awaiting handover."
+                iconType="check"
+              />
+            ) : (
+              deliveries.map(d => {
+                const isActive = d.id === selectedDelId;
+                const reqObj = requests.find(r => r.id === d.demandId);
+                return (
+                  <button
+                    key={d.id}
+                    className={`${styles.deliveryRow} ${isActive ? styles.deliveryRowActive : ''}`}
+                    onClick={() => setSelectedDelId(d.id)}
+                  >
+                    <div className={styles.drLeft}>
+                      <span className={styles.drId}>{d.id}</span>
+                      <span className={`${styles.drBadge} ${styles['status_' + d.status]}`}>
+                        {t(`status.${d.status}`) || d.status.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    <div className={styles.drMiddle}>
+                      <span className={styles.drTarget}>{reqObj?.zoneName.split(',')[0]}</span>
+                      <span className={styles.drCargo}>{d.allocatedQty.toLocaleString()} {d.unit} {d.resourceType}</span>
+                    </div>
+                    <div className={styles.drRight}>
+                      <span className={styles.drActionText}>
+                        {d.status === 'VERIFIED' ? t('status.DELIVERED') : t('status.PENDING')}
+                      </span>
+                      <ArrowRight size={12} className={styles.drArrow} />
+                    </div>
+                  </button>
+                );
+              })
+            )}
           </div>
 
           {/* Delivery Exception Alert Component */}

@@ -1,3 +1,4 @@
+import React from 'react';
 import { AlertTriangle, Clock, RefreshCw, Search, Check, X, ShieldAlert } from 'lucide-react';
 import styles from './SystemStates.module.css';
 
