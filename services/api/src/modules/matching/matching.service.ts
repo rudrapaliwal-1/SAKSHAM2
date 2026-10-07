@@ -148,7 +148,13 @@ export class MatchingService {
       const isStatusIneligible = ineligibleStatuses.includes(res.status);
       const isQuantityIneligible = res.availableQuantity - res.reservedQuantity <= 0;
 
-      if (isStatusIneligible || isQuantityIneligible) {
+      // Category compatibility check
+      const reqUpper = (requestedType || '').toUpperCase();
+      const compatibleList = COMPATIBLE_CATEGORIES[reqUpper] || [reqUpper];
+      const isCategoryCompatible = compatibleList.includes(res.category?.toUpperCase()) ||
+        res.category?.toUpperCase() === reqUpper;
+
+      if (isStatusIneligible || isQuantityIneligible || !isCategoryCompatible) {
         continue;
       }
 

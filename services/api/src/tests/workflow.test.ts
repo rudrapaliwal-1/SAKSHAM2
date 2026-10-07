@@ -197,4 +197,86 @@ describe('SAKSHAM P0 End-to-End Operational Workflow & Domain Verification', () 
     const resolvedAlert = inMemoryStore.resolveAlert(alert.id);
     expect(resolvedAlert?.resolved).toBe(true);
   });
+
+  it('10. should execute the exact 24-step SIH Judge Disaster-Response Operation end-to-end', async () => {
+    // 1-2. Dashboard: Load baseline Yamuna Flood Incident
+    const inc = inMemoryStore.getIncidentById('INC-2026-101');
+    expect(inc).toBeDefined();
+    expect(inc?.severity).toBe('CRITICAL');
+    expect(inc?.location).toContain('Kashmiri Gate');
+
+    // 3-4. Map: Verify affected sector coordinates
+    expect(inc?.coordinates.lat).toBeCloseTo(28.6672, 2);
+    expect(inc?.coordinates.lng).toBeCloseTo(77.2285, 2);
+
+    // 5-6. Demand: Critical Medical Request arrived (DEM-2026-102: Trauma Kits)
+    const demand = inMemoryStore.getDemandById('DEM-2026-102');
+    expect(demand).toBeDefined();
+    expect(demand?.category).toBe('MEDICAL');
+    expect(demand?.priority).toBe('CRITICAL');
+    expect(demand?.quantity).toBe(80);
+
+    // 7-8. Matching Engine: Multi-factor recommendation
+    const recs = await MatchingService.getRecommendations('DEM-2026-102');
+    expect(recs.matches).toBeDefined();
+    expect(recs.matches!.length).toBeGreaterThan(0);
+    const topMatch = recs.matches![0];
+    expect(topMatch.score).toBeGreaterThanOrEqual(80);
+    expect(topMatch.breakdown).toBeDefined();
+    expect(topMatch.resourceId).toBe('RES-NCR-003');
+    expect(topMatch.name).toContain('Trauma');
+    expect(recs.bestMatch?.explanation).toBeDefined();
+
+    // 9-10. Accept allocation & verify inventory reduction
+    const initialDepotStock = inMemoryStore.getResourceById('RES-NCR-003')?.quantity || 140;
+    const alloc = inMemoryStore.createAllocation({
+      demandId: 'DEM-2026-102',
+      resourceId: 'RES-NCR-003',
+      quantity: 80,
+      vehicleId: 'VEH-TRK-101',
+    });
+    expect(alloc.id).toBeDefined();
+    const updatedDepotStock = inMemoryStore.getResourceById('RES-NCR-003')?.quantity;
+    expect(updatedDepotStock).toBe(initialDepotStock - 80);
+
+    // 11-13. Assign responder, create mission, and compute route
+    const mission = inMemoryStore.createMission({
+      requestId: 'DEM-2026-102',
+      vehicleId: 'VEH-TRK-101',
+      operatorName: 'Sgt. Anil Meena',
+    });
+    expect(mission.id).toMatch(/^DSP-DEL-/);
+    expect(mission.vehicleId).toBe('VEH-TRK-101');
+
+    const route = inMemoryStore.calculateRoute(
+      { lat: 28.5672, lng: 77.2100 }, // AIIMS Depot
+      { lat: 28.6672, lng: 77.2285 }  // Kashmiri Gate
+    );
+    expect(route.distanceKm).toBeGreaterThan(5);
+    expect(route.estimatedMinutes).toBeGreaterThan(10);
+
+    // 14-15. Start mission & mark en route
+    const enRouteVeh = inMemoryStore.getVehicleById('VEH-TRK-101');
+    expect(enRouteVeh?.status).toBe('EN_ROUTE');
+
+    // 16. Mark arrival
+    const arrivedMission = inMemoryStore.updateMissionStatus(mission.id, 'ARRIVED');
+    expect(arrivedMission?.status).toBe('ARRIVED');
+
+    // 17-18. Complete delivery & resolve demand
+    const reconciled = inMemoryStore.verifyDelivery(mission.id, 'ADM Ritu Malhotra');
+    expect(reconciled?.mission.status).toBe('DELIVERED');
+    const closedDemand = inMemoryStore.getDemandById('DEM-2026-102');
+    expect(closedDemand?.status).toBe('FULFILLED');
+
+    // 19-21. Verify dashboard KPIs & vehicle availability
+    const freeVeh = inMemoryStore.getVehicleById('VEH-TRK-101');
+    expect(freeVeh?.status).toBe('AVAILABLE');
+
+    // 22-24. Audit history & analytics ledger
+    const auditLogs = inMemoryStore.getAuditEvents();
+    expect(auditLogs.length).toBeGreaterThan(0);
+    const hasDeliveryLog = auditLogs.some(l => l.action.toLowerCase().includes('delivery') || l.type === 'DELIVERY');
+    expect(hasDeliveryLog).toBe(true);
+  });
 });

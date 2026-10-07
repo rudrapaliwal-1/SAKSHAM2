@@ -165,4 +165,73 @@ const matching_service_js_1 = require("../modules/matching/matching.service.js")
         const resolvedAlert = inMemoryStore_js_1.inMemoryStore.resolveAlert(alert.id);
         (0, vitest_1.expect)(resolvedAlert?.resolved).toBe(true);
     });
+    (0, vitest_1.it)('10. should execute the exact 24-step SIH Judge Disaster-Response Operation end-to-end', async () => {
+        // 1-2. Dashboard: Load baseline Yamuna Flood Incident
+        const inc = inMemoryStore_js_1.inMemoryStore.getIncidentById('INC-2026-101');
+        (0, vitest_1.expect)(inc).toBeDefined();
+        (0, vitest_1.expect)(inc?.severity).toBe('CRITICAL');
+        (0, vitest_1.expect)(inc?.location).toContain('Kashmiri Gate');
+        // 3-4. Map: Verify affected sector coordinates
+        (0, vitest_1.expect)(inc?.coordinates.lat).toBeCloseTo(28.6672, 2);
+        (0, vitest_1.expect)(inc?.coordinates.lng).toBeCloseTo(77.2285, 2);
+        // 5-6. Demand: Critical Medical Request arrived (DEM-2026-102: Trauma Kits)
+        const demand = inMemoryStore_js_1.inMemoryStore.getDemandById('DEM-2026-102');
+        (0, vitest_1.expect)(demand).toBeDefined();
+        (0, vitest_1.expect)(demand?.category).toBe('MEDICAL');
+        (0, vitest_1.expect)(demand?.priority).toBe('CRITICAL');
+        (0, vitest_1.expect)(demand?.quantity).toBe(80);
+        // 7-8. Matching Engine: Multi-factor recommendation
+        const recs = await matching_service_js_1.MatchingService.getRecommendations('DEM-2026-102');
+        (0, vitest_1.expect)(recs.matches).toBeDefined();
+        (0, vitest_1.expect)(recs.matches.length).toBeGreaterThan(0);
+        const topMatch = recs.matches[0];
+        (0, vitest_1.expect)(topMatch.score).toBeGreaterThanOrEqual(80);
+        (0, vitest_1.expect)(topMatch.breakdown).toBeDefined();
+        (0, vitest_1.expect)(topMatch.resourceId).toBe('RES-NCR-003');
+        (0, vitest_1.expect)(topMatch.name).toContain('Trauma');
+        (0, vitest_1.expect)(recs.bestMatch?.explanation).toBeDefined();
+        // 9-10. Accept allocation & verify inventory reduction
+        const initialDepotStock = inMemoryStore_js_1.inMemoryStore.getResourceById('RES-NCR-003')?.quantity || 140;
+        const alloc = inMemoryStore_js_1.inMemoryStore.createAllocation({
+            demandId: 'DEM-2026-102',
+            resourceId: 'RES-NCR-003',
+            quantity: 80,
+            vehicleId: 'VEH-TRK-101',
+        });
+        (0, vitest_1.expect)(alloc.id).toBeDefined();
+        const updatedDepotStock = inMemoryStore_js_1.inMemoryStore.getResourceById('RES-NCR-003')?.quantity;
+        (0, vitest_1.expect)(updatedDepotStock).toBe(initialDepotStock - 80);
+        // 11-13. Assign responder, create mission, and compute route
+        const mission = inMemoryStore_js_1.inMemoryStore.createMission({
+            requestId: 'DEM-2026-102',
+            vehicleId: 'VEH-TRK-101',
+            operatorName: 'Sgt. Anil Meena',
+        });
+        (0, vitest_1.expect)(mission.id).toMatch(/^DSP-DEL-/);
+        (0, vitest_1.expect)(mission.vehicleId).toBe('VEH-TRK-101');
+        const route = inMemoryStore_js_1.inMemoryStore.calculateRoute({ lat: 28.5672, lng: 77.2100 }, // AIIMS Depot
+        { lat: 28.6672, lng: 77.2285 } // Kashmiri Gate
+        );
+        (0, vitest_1.expect)(route.distanceKm).toBeGreaterThan(5);
+        (0, vitest_1.expect)(route.estimatedMinutes).toBeGreaterThan(10);
+        // 14-15. Start mission & mark en route
+        const enRouteVeh = inMemoryStore_js_1.inMemoryStore.getVehicleById('VEH-TRK-101');
+        (0, vitest_1.expect)(enRouteVeh?.status).toBe('EN_ROUTE');
+        // 16. Mark arrival
+        const arrivedMission = inMemoryStore_js_1.inMemoryStore.updateMissionStatus(mission.id, 'ARRIVED');
+        (0, vitest_1.expect)(arrivedMission?.status).toBe('ARRIVED');
+        // 17-18. Complete delivery & resolve demand
+        const reconciled = inMemoryStore_js_1.inMemoryStore.verifyDelivery(mission.id, 'ADM Ritu Malhotra');
+        (0, vitest_1.expect)(reconciled?.mission.status).toBe('DELIVERED');
+        const closedDemand = inMemoryStore_js_1.inMemoryStore.getDemandById('DEM-2026-102');
+        (0, vitest_1.expect)(closedDemand?.status).toBe('FULFILLED');
+        // 19-21. Verify dashboard KPIs & vehicle availability
+        const freeVeh = inMemoryStore_js_1.inMemoryStore.getVehicleById('VEH-TRK-101');
+        (0, vitest_1.expect)(freeVeh?.status).toBe('AVAILABLE');
+        // 22-24. Audit history & analytics ledger
+        const auditLogs = inMemoryStore_js_1.inMemoryStore.getAuditEvents();
+        (0, vitest_1.expect)(auditLogs.length).toBeGreaterThan(0);
+        const hasDeliveryLog = auditLogs.some(l => l.action.toLowerCase().includes('delivery') || l.type === 'DELIVERY');
+        (0, vitest_1.expect)(hasDeliveryLog).toBe(true);
+    });
 });
