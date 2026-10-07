@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   SAKSHAM MAP VIEW — High-Precision Operational Styling
+   SAKSHAM COMMON OPERATING PICTURE (GIS) — High-Precision Styling
    MapView.module.css
    ═══════════════════════════════════════════════════════════ */
 
@@ -7,7 +7,8 @@
   position: relative;
   width: 100%;
   height: 100%;
-  background-color: #0E1A14;
+  background-color: #0B130E;
+  overflow: hidden;
 }
 
 .mapContainer {
@@ -22,182 +23,442 @@
   right: 0;
   bottom: 0;
   pointer-events: none;
-  box-shadow: inset 0 0 40px rgba(16, 21, 19, 0.2);
+  box-shadow: inset 0 0 50px rgba(11, 19, 14, 0.4);
 }
 
-/* Markers Baseline: Small, precise, Swiss-style dots */
+/* ─── Markers Baseline ────────────────────────────────────────── */
 .marker {
-  width: 11px;
-  height: 11px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   border: 1.5px solid #FFFFFF;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
-  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s;
+  user-select: none;
 }
 
 .marker:hover {
-  transform: scale(1.4) !important;
+  transform: scale(1.45) !important;
   z-index: 999;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2), 0 2px 8px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.25), 0 3px 10px rgba(0, 0, 0, 0.6);
 }
 
-/* Hovered from the incident list (not map hover) */
 .markerHovered {
   transform: scale(1.5) !important;
   z-index: 900;
   animation: markerHoverPulse 2.5s ease-in-out infinite !important;
 }
 
-/* Selected / Active incident marker */
 .markerActive {
-  transform: scale(1.6) !important;
+  transform: scale(1.65) !important;
   z-index: 1000;
-  box-shadow: 0 0 0 4px rgba(232, 111, 22, 0.4), 0 2px 12px rgba(0, 0, 0, 0.6) !important;
-  animation: none !important;
+  box-shadow: 0 0 0 4px rgba(232, 111, 22, 0.5), 0 2px 14px rgba(0, 0, 0, 0.8) !important;
 }
 
-/* Dimmed when focus mode is on and this marker is not selected */
 .markerDimmed {
-  opacity: 0.25;
-  filter: grayscale(0.8);
-  animation: none !important;
-  transform: scale(0.9) !important;
-  transition: opacity 0.4s ease, filter 0.4s ease, transform 0.4s ease;
+  opacity: 0.22;
+  filter: grayscale(0.85);
+  transform: scale(0.85) !important;
+  transition: opacity 0.35s ease, filter 0.35s ease, transform 0.35s ease;
 }
 
 .markerDot {
-  width: 3px;
-  height: 3px;
+  width: 3.5px;
+  height: 3.5px;
   background-color: #FFFFFF;
   border-radius: 50%;
 }
 
-/* Severity Markers */
+/* ─── Entity Marker Types ─────────────────────────────────────── */
+
+/* 1. Incidents */
 .markerCritical {
   background-color: #EF4444;
-  animation: pulseRed 3s infinite ease-in-out;
+  animation: pulseRed 2.8s infinite ease-in-out;
 }
-
 .markerHigh {
   background-color: #F97316;
 }
-
 .markerMedium {
   background-color: #EAB308;
 }
+.markerLow {
+  background-color: #10B981;
+}
 
-/* Shelter Markers */
+/* 2. Demands / Emergency Requests */
+.markerDemand {
+  background-color: #EC4899;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  transform: rotate(45deg);
+  border: 1.5px solid #FFF;
+}
+.markerDemand .markerDot {
+  border-radius: 1px;
+}
+.markerDemandCritical {
+  background-color: #DC2626;
+  animation: pulsePink 2.5s infinite ease-in-out;
+}
+
+/* 3. Shelters */
 .markerShelter {
   background-color: #10B981;
   color: #FFFFFF;
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   font-size: 8px;
   font-weight: 800;
   font-family: var(--font-mono), monospace;
 }
-
 .markerShelterFull {
   background-color: #EAB308;
 }
 
-/* Vehicle Markers */
-.markerVehicle {
-  background-color: #3B82F6;
-  width: 13px;
-  height: 13px;
+/* 4. Hospitals & Trauma Centers */
+.markerHospital {
+  background-color: #06B6D4;
+  color: #FFFFFF;
+  width: 15px;
+  height: 15px;
+  font-size: 9px;
+  font-weight: 900;
+  font-family: var(--font-mono), monospace;
+  border-radius: 4px;
 }
 
+/* 5. Responders */
+.markerResponder {
+  background-color: #8B5CF6;
+  width: 12px;
+  height: 12px;
+}
+
+/* 6. Vehicles */
+.markerVehicle {
+  background-color: #3B82F6;
+  width: 14px;
+  height: 14px;
+}
 .vehicleInner {
   width: 0;
   height: 0;
   border-left: 3.5px solid transparent;
   border-right: 3.5px solid transparent;
-  border-bottom: 6px solid #FFFFFF;
+  border-bottom: 6.5px solid #FFFFFF;
   transform: translateY(-0.5px);
 }
 
-/* Resource Markers */
+/* 7. Resources */
 .markerResource {
   background-color: #6366F1;
-  width: 11px;
-  height: 11px;
+  width: 12px;
+  height: 12px;
 }
-
 .markerResourceLOW {
   background-color: #EAB308;
 }
-
 .markerResourceDEPLETED {
   background-color: #6B7280;
 }
 
-/* Map Popup Overrides (applied in JS template injection) */
+/* ─── Filter Bar & Toolbars ────────────────────────────────────── */
+
+.mapControlsTop {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  pointer-events: none;
+  z-index: 800;
+}
+
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  background: rgba(14, 22, 17, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 6px 10px;
+  pointer-events: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.filterSelect {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #FAF8F3;
+  font-size: 11px;
+  font-family: var(--font-sans), sans-serif;
+  border-radius: 4px;
+  padding: 4px 8px;
+  outline: none;
+  cursor: pointer;
+}
+.filterSelect:focus {
+  border-color: #E86F16;
+}
+
+.layerToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(250, 248, 243, 0.7);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.layerToggleBtnActive {
+  background: rgba(232, 111, 22, 0.2);
+  border-color: rgba(232, 111, 22, 0.5);
+  color: #FFAE73;
+}
+
+.demoRoutingNotice {
+  position: absolute;
+  bottom: 18px;
+  left: 14px;
+  background: rgba(11, 19, 14, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(232, 111, 22, 0.35);
+  border-radius: 6px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #FAF8F3;
+  pointer-events: auto;
+  z-index: 700;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.demoRoutingTag {
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(232, 111, 22, 0.2);
+  color: #FFAE73;
+  padding: 2px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Slide-Out Inspector Drawer ───────────────────────────────── */
+
+.inspectorDrawer {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  bottom: 14px;
+  width: 360px;
+  max-width: calc(100% - 28px);
+  background: rgba(13, 21, 16, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  color: #FAF8F3;
+  z-index: 850;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  animation: slideInRight 0.22s ease-out;
+  overflow-y: auto;
+}
+
+.inspectorHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.inspectorTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #FAF8F3;
+  margin: 4px 0 2px;
+}
+
+.inspectorSubtitle {
+  font-size: 11px;
+  color: rgba(250, 248, 243, 0.6);
+}
+
+.inspectorCloseBtn {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: rgba(250, 248, 243, 0.7);
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.inspectorCloseBtn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #FFF;
+}
+
+.inspectorGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.inspectorCell {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.inspectorLabel {
+  display: block;
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(250, 248, 243, 0.45);
+  margin-bottom: 3px;
+  text-transform: uppercase;
+}
+
+.inspectorValue {
+  font-size: 12px;
+  font-weight: 600;
+  color: #FAF8F3;
+}
+
+.inspectorCard {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.inspectorCardTitle {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: #FFAE73;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.inspectorActionBtn {
+  margin-top: auto;
+  background: #E86F16;
+  color: #FFF;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 9px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s;
+}
+.inspectorActionBtn:hover {
+  background: #F97316;
+}
+
+/* ─── Map Popup Overrides ──────────────────────────────────────── */
+
 :global(.maplibregl-popup-content) {
-  background-color: rgba(16, 21, 19, 0.94) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
+  background-color: rgba(13, 21, 16, 0.95) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
   border-radius: 6px !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
-  border: 1px solid rgba(250, 248, 243, 0.08) !important;
-  padding: 10px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid rgba(250, 248, 243, 0.12) !important;
+  padding: 10px 12px !important;
 }
 
 :global(.maplibregl-popup-tip) {
-  border-top-color: rgba(16, 21, 19, 0.94) !important;
+  border-top-color: rgba(13, 21, 16, 0.95) !important;
 }
 
 :global(.mapPopup) {
   font-family: var(--font-sans), sans-serif;
   color: #FAF8F3;
-  min-width: 160px;
-  max-width: 220px;
+  min-width: 170px;
+  max-width: 230px;
 }
 
 :global(.popupBadge) {
   display: inline-block;
   font-family: var(--font-mono), monospace;
-  font-size: 8px;
+  font-size: 8.5px;
   font-weight: 700;
-  padding: 1px 5px;
+  padding: 2px 6px;
   border-radius: 3px;
   margin-bottom: 6px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 :global(.badgeCRITICAL) {
-  background-color: rgba(239, 68, 68, 0.15);
+  background-color: rgba(239, 68, 68, 0.2);
   color: #FF8F85;
-  border: 1px solid rgba(239, 68, 68, 0.35);
+  border: 1px solid rgba(239, 68, 68, 0.4);
 }
 
 :global(.badgeHIGH) {
-  background-color: rgba(249, 115, 22, 0.15);
+  background-color: rgba(249, 115, 22, 0.2);
   color: #FFB380;
-  border: 1px solid rgba(249, 115, 22, 0.35);
+  border: 1px solid rgba(249, 115, 22, 0.4);
 }
 
-:global(.badgeShelter) {
-  background-color: rgba(16, 185, 129, 0.15);
-  color: #A3E2B2;
-  border: 1px solid rgba(16, 185, 129, 0.35);
+:global(.badgeHospital) {
+  background-color: rgba(6, 182, 212, 0.2);
+  color: #A5F3FC;
+  border: 1px solid rgba(6, 182, 212, 0.4);
 }
 
-:global(.badgeVehicle) {
-  background-color: rgba(59, 130, 246, 0.15);
-  color: #93C5FD;
-  border: 1px solid rgba(59, 130, 246, 0.35);
+:global(.badgeResponder) {
+  background-color: rgba(139, 92, 246, 0.2);
+  color: #DDD6FE;
+  border: 1px solid rgba(139, 92, 246, 0.4);
 }
 
-:global(.badgeResource) {
-  background-color: rgba(99, 102, 241, 0.15);
-  color: #A5B4FC;
-  border: 1px solid rgba(99, 102, 241, 0.35);
+:global(.badgeDemand) {
+  background-color: rgba(236, 72, 153, 0.2);
+  color: #FBCFE8;
+  border: 1px solid rgba(236, 72, 153, 0.4);
 }
 
 :global(.popupTitle) {
@@ -209,56 +470,30 @@
 
 :global(.popupLoc) {
   font-size: 10px;
-  color: rgba(250, 248, 243, 0.6);
+  color: rgba(250, 248, 243, 0.65);
   margin-bottom: 6px;
 }
 
-:global(.popupDesc) {
-  font-size: 11px;
-  color: rgba(250, 248, 243, 0.8);
-  line-height: 1.4;
-  margin-bottom: 4px;
-}
-
-:global(.popupCapacityBar) {
-  width: 100%;
-  height: 4px;
-  background-color: rgba(250, 248, 243, 0.1);
-  border-radius: 20px;
-  overflow: hidden;
-  margin: 6px 0 4px;
-}
-
-:global(.popupCapacityFill) {
-  height: 100%;
-  background-color: #10B981;
-}
-
-:global(.popupCapText) {
-  font-size: 9px;
-  color: rgba(250, 248, 243, 0.45);
-  font-family: var(--font-mono), monospace;
-}
-
-:global(.popupCargo) {
-  font-size: 10.5px;
-  background-color: rgba(250, 248, 243, 0.03);
-  padding: 4px 6px;
-  border-radius: 4px;
-  margin-top: 4px;
-  border: 1px solid rgba(250, 248, 243, 0.06);
-}
-
-/* Subtle, slow pulsing animations (CRITICAL only) */
+/* Animations */
 @keyframes pulseRed {
-  0%   { box-shadow: 0 0 0 0   rgba(239, 68, 68, 0.45); }
+  0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
   70%  { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-  100% { box-shadow: 0 0 0 0   rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
-/* Halo pulse for incident-list hovered marker */
+@keyframes pulsePink {
+  0%   { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.5); }
+  70%  { box-shadow: 0 0 0 10px rgba(236, 72, 153, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0); }
+}
+
 @keyframes markerHoverPulse {
-  0%   { box-shadow: 0 0 0 0px  rgba(250, 248, 243, 0.5), 0 2px 8px rgba(0,0,0,0.5); }
-  60%  { box-shadow: 0 0 0 8px  rgba(250, 248, 243, 0),   0 2px 8px rgba(0,0,0,0.5); }
-  100% { box-shadow: 0 0 0 0px  rgba(250, 248, 243, 0),   0 2px 8px rgba(0,0,0,0.5); }
+  0%   { box-shadow: 0 0 0 0px rgba(250, 248, 243, 0.5), 0 2px 8px rgba(0,0,0,0.5); }
+  60%  { box-shadow: 0 0 0 8px rgba(250, 248, 243, 0), 0 2px 8px rgba(0,0,0,0.5); }
+  100% { box-shadow: 0 0 0 0px rgba(250, 248, 243, 0), 0 2px 8px rgba(0,0,0,0.5); }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
 }

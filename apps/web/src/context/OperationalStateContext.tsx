@@ -15,6 +15,9 @@ import { mockShelters } from '../data/mockShelters';
 import { mockMissions } from '../data/mockMissions';
 import { mockDeliveries } from '../data/mockDeliveries';
 import { mockAuditLogs, type AuditLogEntry } from '../data/mockAuditLogs';
+import { mockResponders, type ResponderItem } from '../data/mockResponders';
+import { mockHospitals, type HospitalItem } from '../data/mockHospitals';
+import { mockHazardZones, type HazardZone } from '../data/mockHazardZones';
 
 export interface DispatchMission {
   id: string;
@@ -84,6 +87,9 @@ interface OperationalStateContextType {
   resources: ResourceItem[];
   missions: DispatchMission[];
   deliveries: ReliefDelivery[];
+  responders: ResponderItem[];
+  hospitals: HospitalItem[];
+  hazardZones: HazardZone[];
   auditLogs: AuditLogEntry[];
   alerts: AlertNotification[];
   dataMode: OperationalDataMode;
@@ -92,6 +98,9 @@ interface OperationalStateContextType {
   
   setMissions: React.Dispatch<React.SetStateAction<DispatchMission[]>>;
   setDeliveries: React.Dispatch<React.SetStateAction<ReliefDelivery[]>>;
+  setResponders: React.Dispatch<React.SetStateAction<ResponderItem[]>>;
+  setHospitals: React.Dispatch<React.SetStateAction<HospitalItem[]>>;
+  setHazardZones: React.Dispatch<React.SetStateAction<HazardZone[]>>;
   toasts: ToastMessage[];
   addToast: (type: ToastMessage['type'], text: string) => void;
   removeToast: (id: string) => void;
@@ -329,6 +338,9 @@ export const OperationalStateProvider: React.FC<{ children: React.ReactNode }> =
   const [resources, setResources] = useState<ResourceItem[]>(() => mockResources);
   const [missions, setMissions] = useState<DispatchMission[]>(() => mockMissions);
   const [deliveries, setDeliveries] = useState<ReliefDelivery[]>(() => mockDeliveries);
+  const [responders, setResponders] = useState<ResponderItem[]>(() => mockResponders);
+  const [hospitals, setHospitals] = useState<HospitalItem[]>(() => mockHospitals);
+  const [hazardZones, setHazardZones] = useState<HazardZone[]>(() => mockHazardZones);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(() => mockAuditLogs);
   const [dataMode, setDataMode] = useState<OperationalDataMode>('SIMULATED_DEMO');
 
@@ -1352,6 +1364,9 @@ export const OperationalStateProvider: React.FC<{ children: React.ReactNode }> =
         resources,
         missions,
         deliveries,
+        responders,
+        hospitals,
+        hazardZones,
         auditLogs,
         alerts,
         dataMode,
@@ -1359,6 +1374,9 @@ export const OperationalStateProvider: React.FC<{ children: React.ReactNode }> =
         resetToDemoDataset,
         setMissions,
         setDeliveries,
+        setResponders,
+        setHospitals,
+        setHazardZones,
         toasts,
         addToast,
         removeToast,
