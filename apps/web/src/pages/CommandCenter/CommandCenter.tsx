@@ -12,9 +12,13 @@ import {
   ArrowRight,
   RotateCcw,
   Zap,
-  Truck
+  Truck,
+  Shield,
+  Clock,
+  Package,
+  Activity,
+  TrendingUp,
 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import styles from './CommandCenter.module.css';
 
 import GradientBackground from '../../components/ui/noisy-gradient-backgrounds';
@@ -54,7 +58,6 @@ function useCountUp(target: number, duration = 1500, triggerStart = false) {
 }
 
 export const CommandCenter: React.FC = () => {
-  const { t } = useTranslation();
   const {
     incidents,
     vehicles,
@@ -62,23 +65,31 @@ export const CommandCenter: React.FC = () => {
     shelters,
     requests,
     missions,
+    hospitals,
+    responders,
+    hazardZones,
     auditLogs,
+    alerts,
     dataMode,
-    resetToDemoDataset
+    resetToDemoDataset,
   } = useOperationalState();
 
   const [layerFilters, setLayerFilters] = useState({
     incidents: true,
+    demands: true,
     resources: true,
     vehicles: true,
     shelters: true,
+    hospitals: true,
+    responders: true,
     routes: true,
+    hazardZones: true,
   });
   const [isLayersOpen, setIsLayersOpen] = useState(false);
   const layersRef = useRef<HTMLDivElement>(null);
-  const [selectedItem, setSelectedItem] = useState<{ type: 'incident' | 'vehicle' | 'shelter' | 'demand'; obj: any } | null>(null);
+  const [selectedItem, setSelectedItem] = useState<{ type: 'incident' | 'vehicle' | 'shelter' | 'demand' | 'resource' | 'hospital' | 'responder'; obj: any } | null>(null);
 
-  // Animation triggers state
+  // Animation trigger state
   const [statsAnimated, setStatsAnimated] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -99,52 +110,99 @@ export const CommandCenter: React.FC = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, [isLayersOpen]);
 
-  // Computed KPIs
-  const kpiStats = useMemo(() => {
-    const active = incidents.filter(i => i.status !== 'RESOLVED').length;
-    const criticalIncidents = incidents.filter(i => i.severity === 'CRITICAL' && i.status !== 'RESOLVED').length;
-    const pendingDemands = requests.filter(r => r.status === 'PENDING' || r.status === 'OPEN').length;
-    const criticalDemands = requests.filter(r => r.priority === 'CRITICAL' && (r.status === 'PENDING' || r.status === 'OPEN')).length;
-    const availRes = resources.filter(r => r.status === 'AVAILABLE').length;
-    const activeMissionsCount = missions.filter(m => m.status === 'EN_ROUTE' || m.status === 'DISPATCHED' || m.status === 'ARRIVED').length;
+  // ─── Computed Application KPIs & Real Data Metrics ──────────────────────────
+  const operationalSummary = useMemo(() => {
+    const activeIncidents = incidents.filter(i => i.status !== 'RESOLVED');
+    const criticalIncidents = incidents.filter(i => i.severity === 'CRITICAL' && i.status !== 'RESOLVED');
+    const totalCasualties = incidents.reduce((a, i) => a + (i.casualtiesCount || 0), 0);
+    const totalAffected = incidents.reduce((a, i) => a + (i.peopleAffected || i.displacedCount || 0), 0);
+
+    const pendingDemands = requests.filter(r => r.status === 'PENDING' || r.status === 'OPEN');
+    const criticalDemands = requests.filter(r => r.priority === 'CRITICAL' && (r.status === 'PENDING' || r.status === 'OPEN'));
+    const unfulfilledDemandTotalQty = requests
+      .filter(r => r.status === 'PENDING' || r.status === 'OPEN' || r.status === 'MATCHED')
+      .reduce((a, r) => a + (r.quantity || 0), 0);
+
+    const availableRes = resources.filter(r => r.status === 'AVAILABLE');
+    const availableResourceStock = availableRes.reduce((a, r) => a + (r.quantity || 0), 0);
+    const allocatedResourceStock = resources.reduce((a, r) => a + (r.allocatedQuantity || 0), 0);
+
+    const activeMissions = missions.filter(m => m.status === 'EN_ROUTE' || m.status === 'DISPATCHED' || m.status === 'ARRIVED');
+    const missionsEnRoute = missions.filter(m => m.status === 'EN_ROUTE');
+    const resourcesDeployedInTransit = activeMissions.reduce((a, m) => a + (m.quantity || 0), 0);
 
     const totalCap = shelters.reduce((a, s) => a + s.capacityTotal, 0);
     const occupied = shelters.reduce((a, s) => a + s.capacityOccupied, 0);
     const shelterPct = totalCap > 0 ? Math.round((occupied / totalCap) * 100) : 0;
 
-    return {
-      active,
-      criticalIncidents,
-      pendingDemands,
-      criticalDemands,
-      availRes,
-      activeMissionsCount,
-      shelterPct
-    };
-  }, [incidents, requests, resources, missions, shelters]);
+    const respondersDeployed = responders.filter(r => r.status === 'ON_MISSION' || r.status === 'ON_DUTY');
 
-  // Get top urgent active incidents
+    // Dynamically computed response time and resolution rate
+    const avgResponseTime = missions.length > 0
+      ? (missions.reduce((a, m) => a + (m.etaMinutes || 15), 0) / missions.length).toFixed(1)
+      : '14.8';
+
+    const totalCasesCount = (incidents.length + requests.length) || 1;
+    const resolvedCasesCount = incidents.filter(i => i.status === 'RESOLVED').length +
+      requests.filter(r => r.status === 'FULFILLED').length;
+    const resolutionRate = Math.round((resolvedCasesCount / totalCasesCount) * 100);
+
+    // Primary active geographic zones
+    const primaryZones = Array.from(new Set([
+      ...incidents.map(i => i.location.split(',')[0].trim()),
+      ...hazardZones.map(h => h.name.split('(')[0].trim())
+    ])).slice(0, 3);
+
+    return {
+      activeIncidentsCount: activeIncidents.length,
+      criticalIncidentsCount: criticalIncidents.length,
+      totalCasualties,
+      totalAffected,
+      pendingDemandsCount: pendingDemands.length,
+      criticalDemandsCount: criticalDemands.length,
+      unfulfilledDemandTotalQty,
+      availableDepotsCount: availableRes.length,
+      availableResourceStock,
+      allocatedResourceStock,
+      activeMissionsCount: activeMissions.length,
+      missionsEnRouteCount: missionsEnRoute.length,
+      resourcesDeployedInTransit,
+      shelterPct,
+      totalCap,
+      occupied,
+      respondersDeployedCount: respondersDeployed.length,
+      avgResponseTime,
+      resolutionRate,
+      resolvedCasesCount,
+      totalCasesCount,
+      primaryZones,
+    };
+  }, [incidents, requests, resources, missions, shelters, responders, hazardZones]);
+
+  // Top urgent active incidents
   const topIncidents = useMemo(() => {
     return incidents
       .filter(i => i.status !== 'RESOLVED')
-      .slice(0, 4);
+      .slice(0, 5);
   }, [incidents]);
 
   // Unfulfilled critical demands
   const urgentDemands = useMemo(() => {
     return requests
       .filter(r => r.status === 'PENDING' || r.status === 'MATCHED')
-      .slice(0, 3);
+      .slice(0, 4);
   }, [requests]);
 
-  // CountUp states
-  const activeCountVal = useCountUp(kpiStats.active, 1400, statsAnimated);
-  const pendingCountVal = useCountUp(kpiStats.pendingDemands, 1400, statsAnimated);
-  const availResCountVal = useCountUp(kpiStats.availRes, 1400, statsAnimated);
-  const onMissionCountVal = useCountUp(kpiStats.activeMissionsCount, 1400, statsAnimated);
-  const shelterPctCountVal = useCountUp(kpiStats.shelterPct, 1400, statsAnimated);
+  // CountUp animated values
+  const activeIncVal = useCountUp(operationalSummary.activeIncidentsCount, 1400, statsAnimated);
+  const critDemVal = useCountUp(operationalSummary.criticalDemandsCount, 1400, statsAnimated);
+  const unfulfDemVal = useCountUp(operationalSummary.unfulfilledDemandTotalQty, 1400, statsAnimated);
+  const availStockVal = useCountUp(operationalSummary.availableResourceStock, 1400, statsAnimated);
+  const activeMissionsVal = useCountUp(operationalSummary.activeMissionsCount, 1400, statsAnimated);
+  const deployedStockVal = useCountUp(operationalSummary.resourcesDeployedInTransit, 1400, statsAnimated);
+  const shelterPctVal = useCountUp(operationalSummary.shelterPct, 1400, statsAnimated);
 
-  // ─── GSAP ScrollTrigger & Entrance animations ──────────────────────────────
+  // ─── GSAP Entrance Animations ──────────────────────────────────────────────
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) {
@@ -155,16 +213,20 @@ export const CommandCenter: React.FC = () => {
     const ctx = gsap.context(() => {
       setStatsAnimated(true);
       const heroTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-      heroTl.fromTo(`.${styles.heroSubtitle}`,
-        { opacity: 0, y: 15 },
-        { opacity: 1, y: 0, duration: 0.5 }
-      )
-        .fromTo(`.${styles.heroTitle}`,
+      heroTl
+        .fromTo(
+          `.${styles.heroSubtitle}`,
+          { opacity: 0, y: 15 },
+          { opacity: 1, y: 0, duration: 0.5 }
+        )
+        .fromTo(
+          `.${styles.heroTitle}`,
           { clipPath: 'polygon(0 100%, 100% 100%, 100% 100%, 0% 100%)', y: 30 },
           { clipPath: 'polygon(0 0%, 100% 0%, 100% 100%, 0% 100%)', y: 0, duration: 0.8 },
           '-=0.3'
         )
-        .fromTo(`.${styles.heroLead}`,
+        .fromTo(
+          `.${styles.heroLead}`,
           { opacity: 0, y: 15 },
           { opacity: 1, y: 0, duration: 0.5 },
           '-=0.3'
@@ -178,32 +240,38 @@ export const CommandCenter: React.FC = () => {
     <div ref={containerRef} className={styles.container}>
       <GradientBackground />
 
-      {/* 1. EDITORIAL HERO SECTION */}
+      {/* ─── 1. EDITORIAL HERO & STATUS HEADER ─── */}
       <section ref={heroRef} className={`${styles.heroSection} shaderHeaderWrapper`}>
         <ShaderBackground className="absolute inset-0" />
         <div className={styles.heroHeader}>
           <div className={styles.heroTitles}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '8px' }}>
-              <span className={styles.heroSubtitle} style={{ marginBottom: 0 }}>MISSION CONTROL &amp; COP</span>
-              <span style={{
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '0.08em',
-                padding: '3px 9px',
-                borderRadius: '4px',
-                backgroundColor: dataMode === 'LIVE_BACKEND' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(232, 111, 22, 0.2)',
-                color: dataMode === 'LIVE_BACKEND' ? '#10B981' : '#E86F16',
-                border: `1px solid ${dataMode === 'LIVE_BACKEND' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(232, 111, 22, 0.4)'}`
-              }}>
-                {dataMode === 'LIVE_BACKEND' ? '● LIVE API FEED' : '● SIMULATED DISASTER DEMO (DELHI NCR)'}
+              <span className={styles.heroSubtitle} style={{ marginBottom: 0 }}>
+                SAKSHAM DISASTER COMMAND CENTER
+              </span>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  padding: '3px 9px',
+                  borderRadius: '4px',
+                  backgroundColor: dataMode === 'LIVE_BACKEND' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(232, 111, 22, 0.2)',
+                  color: dataMode === 'LIVE_BACKEND' ? '#10B981' : '#FFAE73',
+                  border: `1px solid ${dataMode === 'LIVE_BACKEND' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(232, 111, 22, 0.4)'}`,
+                }}
+              >
+                {dataMode === 'LIVE_BACKEND' ? '● LIVE CENTRAL API FEED' : '● SIMULATED DISASTER DEMO (DELHI NCR)'}
               </span>
               <PageGuideTrigger />
             </div>
             <div style={{ overflow: 'hidden' }}>
-              <h1 className={`${styles.heroTitle} reveal-block`} data-reveal-color="#F47C20">Unified Common Operating Picture</h1>
+              <h1 className={`${styles.heroTitle} reveal-block`} data-reveal-color="#F47C20">
+                Unified Emergency Common Operating Picture
+              </h1>
             </div>
             <p className={styles.heroLead}>
-              Real-time situational intelligence connecting verified disaster demands, depot stockpiles, fleet dispatch telemetry, and shelter networks across Delhi NCR.
+              Real-time multi-agency situational intelligence matching verified disaster relief requests, medical stockpile depots, active logistics convoys, and emergency shelter perimeters across Delhi NCR.
             </p>
           </div>
 
@@ -211,8 +279,8 @@ export const CommandCenter: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span className={styles.statusDotPulse} />
               <div className={styles.statusDetails}>
-                <span className={styles.statusLabel}>NATIONAL RESPONSE GRID</span>
-                <span className={styles.syncLabel}>COORDINATION LEVEL 1 ACTIVE</span>
+                <span className={styles.statusLabel}>NATIONAL CRISIS COORDINATION</span>
+                <span className={styles.syncLabel}>LEVEL 1 RED ALERT · ACTIVE</span>
               </div>
             </div>
             <button
@@ -230,7 +298,7 @@ export const CommandCenter: React.FC = () => {
                 padding: '6px 12px',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
               }}
               title="Reset all incidents, requests, and fleet positions to initial Delhi scenario"
             >
@@ -241,120 +309,298 @@ export const CommandCenter: React.FC = () => {
         </div>
       </section>
 
-      {/* 2. OPERATIONAL ACTION / NEXT-STEPS BAR */}
-      <section style={{
-        margin: '0 24px 20px 24px',
-        padding: '16px 20px',
-        background: 'rgba(11, 33, 25, 0.75)',
-        backdropFilter: 'blur(12px)',
-        border: '1px solid rgba(232, 111, 22, 0.3)',
-        borderRadius: '8px',
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '16px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '50%',
-            background: 'rgba(232, 111, 22, 0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#E86F16'
-          }}>
-            <Zap size={18} />
+      {/* ─── 2. THE 6 CORE OPERATIONAL INTELLIGENCE QUESTIONS ─── */}
+      <section className={styles.opQuestionsGrid}>
+        {/* Q1: WHAT IS HAPPENING? */}
+        <div className={styles.opQuestionCard}>
+          <div className={styles.opQuestionHeader}>
+            <span className={styles.opQuestionIcon}><Activity size={14} /></span>
+            <span className={styles.opQuestionTitle}>1. WHAT IS HAPPENING?</span>
           </div>
-          <div>
-            <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', color: '#E86F16' }}>RECOMMENDED OPERATOR ACTION</div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#FAF8F3' }}>
-              {kpiStats.criticalDemands > 0
-                ? `${kpiStats.criticalDemands} Critical Unallocated Demands awaiting Resource Matching Engine`
-                : 'All critical demands allocated. Monitor active convoy dispatches and verify deliveries.'}
-            </div>
+          <div className={styles.opQuestionHeadline}>
+            {operationalSummary.activeIncidentsCount} Active Disaster Incidents ({operationalSummary.criticalIncidentsCount} Critical)
           </div>
+          <p className={styles.opQuestionDetail}>
+            Major river Yamuna breach inundating Kashmiri Gate lowlands alongside structural collapse in Okhla Phase II and industrial fire.
+          </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          {urgentDemands[0] && (
-            <Link
-              to={`/operations/matching?requestId=${urgentDemands[0].id}`}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: '#E86F16',
-                color: '#0B2119',
-                fontSize: '12px',
-                fontWeight: 700,
-                letterSpacing: '0.04em',
-                padding: '8px 16px',
-                borderRadius: '4px',
-                textDecoration: 'none'
-              }}
+        {/* Q2: WHERE? */}
+        <div className={styles.opQuestionCard}>
+          <div className={styles.opQuestionHeader}>
+            <span className={styles.opQuestionIcon}><MapPin size={14} /></span>
+            <span className={styles.opQuestionTitle}>2. WHERE?</span>
+          </div>
+          <div className={styles.opQuestionHeadline}>
+            {operationalSummary.primaryZones.join(' · ') || 'Delhi NCR Emergency Grid'}
+          </div>
+          <p className={styles.opQuestionDetail}>
+            Active epicenter: 28.6139° N, 77.2090° E. Arterial supply transit via Ring Road Bypass and Barapullah elevated corridor.
+          </p>
+        </div>
+
+        {/* Q3: HOW SEVERE? */}
+        <div className={styles.opQuestionCard}>
+          <div className={styles.opQuestionHeader}>
+            <span className={styles.opQuestionIcon}><AlertTriangle size={14} /></span>
+            <span className={styles.opQuestionTitle}>3. HOW SEVERE?</span>
+          </div>
+          <div className={styles.opQuestionHeadline} style={{ color: '#EF4444' }}>
+            CRITICAL THREAT · {operationalSummary.totalCasualties} Casualties · ~{operationalSummary.totalAffected.toLocaleString()} Displaced
+          </div>
+          <p className={styles.opQuestionDetail}>
+            High trauma priority with rising water levels in lowlands; 80% casualty triage routed to AIIMS and LNJP Trauma Centers.
+          </p>
+        </div>
+
+        {/* Q4: WHAT NEEDS ACTION? */}
+        <div className={styles.opQuestionCard}>
+          <div className={styles.opQuestionHeader}>
+            <span className={styles.opQuestionIcon}><Zap size={14} /></span>
+            <span className={styles.opQuestionTitle}>4. WHAT NEEDS ACTION?</span>
+          </div>
+          <div className={styles.opQuestionHeadline} style={{ color: '#FFAE73' }}>
+            {operationalSummary.criticalDemandsCount} Critical Demands · {operationalSummary.pendingDemandsCount} Unallocated Demands
+          </div>
+          <p className={styles.opQuestionDetail}>
+            Trauma triage kits, inflatable rescue boats, and high-capacity water filtration units awaiting matching & dispatch.
+          </p>
+        </div>
+
+        {/* Q5: WHAT IS AVAILABLE? */}
+        <div className={styles.opQuestionCard}>
+          <div className={styles.opQuestionHeader}>
+            <span className={styles.opQuestionIcon}><Package size={14} /></span>
+            <span className={styles.opQuestionTitle}>5. WHAT IS AVAILABLE?</span>
+          </div>
+          <div className={styles.opQuestionHeadline} style={{ color: '#10B981' }}>
+            {operationalSummary.availableResourceStock.toLocaleString()} Available Material Units · {operationalSummary.totalCap.toLocaleString()} Shelter Beds
+          </div>
+          <p className={styles.opQuestionDetail}>
+            Stockpiled across {operationalSummary.availableDepotsCount} verified logistics depots; regional shelter load at {shelterPctVal}%.
+          </p>
+        </div>
+
+        {/* Q6: WHAT IS CURRENTLY DEPLOYED? */}
+        <div className={styles.opQuestionCard}>
+          <div className={styles.opQuestionHeader}>
+            <span className={styles.opQuestionIcon}><Truck size={14} /></span>
+            <span className={styles.opQuestionTitle}>6. WHAT IS DEPLOYED?</span>
+          </div>
+          <div className={styles.opQuestionHeadline} style={{ color: '#3B82F6' }}>
+            {operationalSummary.activeMissionsCount} Active Convoy Missions · {operationalSummary.resourcesDeployedInTransit.toLocaleString()} Units In Transit
+          </div>
+          <p className={styles.opQuestionDetail}>
+            {operationalSummary.respondersDeployedCount} deployed field personnel across NDRF, Delhi EMS, and SDRF Boat Units.
+          </p>
+        </div>
+      </section>
+
+      {/* ─── 3. CRITICAL OPERATIONAL ALERTS FEED ─── */}
+      {alerts.length > 0 && (
+        <section className={styles.alertsContainer}>
+          {alerts.map((alert) => (
+            <div
+              key={alert.id}
+              className={`${styles.alertBanner} ${alert.severity === 'HIGH' ? styles.alertBannerHigh : ''}`}
             >
-              <span>RUN MATCHING ({urgentDemands[0].id})</span>
-              <ArrowRight size={14} />
-            </Link>
-          )}
-          <Link
-            to="/operations/dispatch"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              color: '#FAF8F3',
-              fontSize: '12px',
-              fontWeight: 700,
-              letterSpacing: '0.04em',
-              padding: '8px 16px',
-              borderRadius: '4px',
-              textDecoration: 'none'
-            }}
-          >
-            <Truck size={14} />
-            <span>DISPATCH BOARD</span>
+              <div className={styles.alertContent}>
+                <AlertTriangle size={15} color={alert.severity === 'CRITICAL' ? '#EF4444' : '#FFAE73'} />
+                <div>
+                  <span className={styles.alertTitle}>{alert.title}</span>
+                  <span className={styles.alertMsg}> &mdash; {alert.message}</span>
+                </div>
+              </div>
+              {alert.actionPath && (
+                <Link to={alert.actionPath} className={styles.alertActionBtn}>
+                  <span>TAKE ACTION</span>
+                  <ArrowRight size={12} />
+                </Link>
+              )}
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* ─── 4. INTERACTIVE APPLICATION KPI MATRIX (8 Dynamic Metrics) ─── */}
+      <section ref={statsRef} className={styles.kpiSection}>
+        <div className={styles.kpiGrid}>
+          {/* KPI 1: Active Incidents */}
+          <Link to="/operations/incidents" className={styles.kpiCard} title="Click to view all active incident cases">
+            <div className={styles.kpiCardTop}>
+              <span className={styles.kpiLabel}>ACTIVE INCIDENTS</span>
+              <AlertTriangle size={15} className={styles.kpiIcon} />
+            </div>
+            <div className={styles.kpiValue} style={{ color: operationalSummary.criticalIncidentsCount > 0 ? '#EF4444' : '#FAF8F3' }}>
+              {String(activeIncVal).padStart(2, '0')}
+            </div>
+            <div className={styles.kpiSub}>
+              <span>{operationalSummary.criticalIncidentsCount} Critical Threats</span>
+              <ChevronRight size={11} style={{ marginLeft: 'auto' }} />
+            </div>
+          </Link>
+
+          {/* KPI 2: Critical Requests */}
+          <Link to="/operations/demands" className={styles.kpiCard} title="Click to view urgent demand requests">
+            <div className={styles.kpiCardTop}>
+              <span className={styles.kpiLabel}>CRITICAL REQUESTS</span>
+              <Zap size={15} className={styles.kpiIcon} />
+            </div>
+            <div className={styles.kpiValue} style={{ color: '#FFAE73' }}>
+              {String(critDemVal).padStart(2, '0')}
+            </div>
+            <div className={styles.kpiSub}>
+              <span>{operationalSummary.pendingDemandsCount} Total Pending Demands</span>
+              <ChevronRight size={11} style={{ marginLeft: 'auto' }} />
+            </div>
+          </Link>
+
+          {/* KPI 3: Unfulfilled Demand */}
+          <Link to="/operations/demands" className={styles.kpiCard} title="Click to inspect unallocated demand volume">
+            <div className={styles.kpiCardTop}>
+              <span className={styles.kpiLabel}>UNFULFILLED DEMAND</span>
+              <Package size={15} className={styles.kpiIcon} />
+            </div>
+            <div className={styles.kpiValue}>
+              {unfulfDemVal.toLocaleString()}
+            </div>
+            <div className={styles.kpiSub}>
+              <span>Material Units Needed</span>
+              <ChevronRight size={11} style={{ marginLeft: 'auto' }} />
+            </div>
+          </Link>
+
+          {/* KPI 4: Available Resources */}
+          <Link to="/operations/resources" className={styles.kpiCard} title="Click to view supply depot inventory">
+            <div className={styles.kpiCardTop}>
+              <span className={styles.kpiLabel}>AVAILABLE RESOURCES</span>
+              <CheckCircle size={15} className={styles.kpiIcon} />
+            </div>
+            <div className={styles.kpiValue} style={{ color: '#10B981' }}>
+              {availStockVal.toLocaleString()}
+            </div>
+            <div className={styles.kpiSub}>
+              <span>Stock Units Across {operationalSummary.availableDepotsCount} Depots</span>
+              <ChevronRight size={11} style={{ marginLeft: 'auto' }} />
+            </div>
+          </Link>
+
+          {/* KPI 5: Active Missions */}
+          <Link to="/operations/dispatch" className={styles.kpiCard} title="Click to view dispatch control board">
+            <div className={styles.kpiCardTop}>
+              <span className={styles.kpiLabel}>ACTIVE MISSIONS</span>
+              <Truck size={15} className={styles.kpiIcon} />
+            </div>
+            <div className={styles.kpiValue} style={{ color: '#3B82F6' }}>
+              {String(activeMissionsVal).padStart(2, '0')}
+            </div>
+            <div className={styles.kpiSub}>
+              <span>{operationalSummary.missionsEnRouteCount} En Route to Destinations</span>
+              <ChevronRight size={11} style={{ marginLeft: 'auto' }} />
+            </div>
+          </Link>
+
+          {/* KPI 6: Resources Deployed */}
+          <Link to="/operations/reconciliation" className={styles.kpiCard} title="Click to inspect relief deliveries">
+            <div className={styles.kpiCardTop}>
+              <span className={styles.kpiLabel}>RESOURCES DEPLOYED</span>
+              <Shield size={15} className={styles.kpiIcon} />
+            </div>
+            <div className={styles.kpiValue}>
+              {deployedStockVal.toLocaleString()}
+            </div>
+            <div className={styles.kpiSub}>
+              <span>Units In Transit / Reserved ({operationalSummary.allocatedResourceStock} Allocated)</span>
+              <ChevronRight size={11} style={{ marginLeft: 'auto' }} />
+            </div>
+          </Link>
+
+          {/* KPI 7: Average Response Time */}
+          <Link to="/operations/dispatch" className={styles.kpiCard} title="Click to view transit timeline telemetry">
+            <div className={styles.kpiCardTop}>
+              <span className={styles.kpiLabel}>AVG RESPONSE TIME</span>
+              <Clock size={15} className={styles.kpiIcon} />
+            </div>
+            <div className={styles.kpiValue} style={{ color: '#FFAE73' }}>
+              ~{operationalSummary.avgResponseTime}m
+            </div>
+            <div className={styles.kpiSub}>
+              <span>Dispatch-to-Arrival Telemetry</span>
+              <ChevronRight size={11} style={{ marginLeft: 'auto' }} />
+            </div>
+          </Link>
+
+          {/* KPI 8: Resolution Rate */}
+          <Link to="/operations/reconciliation" className={styles.kpiCard} title="Click to view delivery reconciliation audit">
+            <div className={styles.kpiCardTop}>
+              <span className={styles.kpiLabel}>RESOLUTION RATE</span>
+              <TrendingUp size={15} className={styles.kpiIcon} />
+            </div>
+            <div className={styles.kpiValue} style={{ color: '#10B981' }}>
+              {operationalSummary.resolutionRate}%
+            </div>
+            <div className={styles.kpiSub}>
+              <span>{operationalSummary.resolvedCasesCount}/{operationalSummary.totalCasesCount} Cases Reconciled</span>
+              <ChevronRight size={11} style={{ marginLeft: 'auto' }} />
+            </div>
           </Link>
         </div>
       </section>
 
-      {/* 3. STATS OVERVIEW SECTION */}
-      <section ref={statsRef} className={styles.statsSection}>
-        <div className={styles.statsGrid}>
-          <div className={styles.statCell}>
-            <span className={styles.statNumber}>{String(activeCountVal).padStart(2, '0')}</span>
-            <span className={styles.statLabel}>Active Incidents ({kpiStats.criticalIncidents} Critical)</span>
+      {/* ─── 5. PRIORITIZED "REQUIRES ATTENTION" SECTION ─── */}
+      <section className={styles.attentionSection}>
+        <div className={styles.attentionHeader}>
+          <div className={styles.attentionTitle}>
+            <Zap size={14} color="#FFAE73" />
+            <span>REQUIRES IMMEDIATE COMMANDER ATTENTION</span>
           </div>
-          <div className={styles.statCell}>
-            <span className={`${styles.statNumber} ${styles.criticalAccent}`}>{String(pendingCountVal).padStart(2, '0')}</span>
-            <span className={styles.statLabel}>Pending Demands ({kpiStats.criticalDemands} Critical)</span>
-          </div>
-          <div className={styles.statCell}>
-            <span className={styles.statNumber}>{String(availResCountVal).padStart(2, '0')}</span>
-            <span className={styles.statLabel}>Active Supply Depots</span>
-          </div>
-          <div className={styles.statCell}>
-            <span className={`${styles.statNumber} ${styles.warningAccent}`}>{String(onMissionCountVal).padStart(2, '0')}</span>
-            <span className={styles.statLabel}>Active Missions En Route</span>
-          </div>
-          <div className={styles.statCell}>
-            <span className={styles.statNumber}>{shelterPctCountVal}%</span>
-            <span className={styles.statLabel}>Regional Shelter Load</span>
-          </div>
+          <span style={{ fontSize: '11px', color: 'rgba(250,248,243,0.6)', fontFamily: 'var(--font-mono)' }}>
+            PRIORITIZED ACTION QUEUE
+          </span>
+        </div>
+
+        <div className={styles.attentionGrid}>
+          {urgentDemands.slice(0, 3).map((dem) => (
+            <div key={dem.id} className={styles.attentionCard}>
+              <div>
+                <div className={styles.attentionItemTitle}>
+                  <span>{dem.itemNeeded}</span>
+                  <span
+                    style={{
+                      fontSize: '9px',
+                      fontWeight: 800,
+                      padding: '2px 6px',
+                      borderRadius: '3px',
+                      backgroundColor: dem.priority === 'CRITICAL' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(249, 115, 22, 0.2)',
+                      color: dem.priority === 'CRITICAL' ? '#FF8F85' : '#FFAE73',
+                      border: `1px solid ${dem.priority === 'CRITICAL' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(249, 115, 22, 0.4)'}`,
+                    }}
+                  >
+                    {dem.priority}
+                  </span>
+                </div>
+                <p className={styles.attentionItemDesc}>
+                  <strong>{dem.quantity.toLocaleString()} {dem.unit}</strong> required at <strong>{dem.zoneName}</strong> for ~{dem.affectedCount.toLocaleString()} affected population. Status: {dem.status}.
+                </p>
+              </div>
+
+              <Link to={`/operations/matching?requestId=${dem.id}`} className={styles.attentionBtn}>
+                <span>RUN RESOURCE MATCHING</span>
+                <ArrowRight size={12} />
+              </Link>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* 4. LIVE MAP SECTION */}
+      {/* ─── 6. COMMON OPERATING PICTURE (COP) GIS MAP ─── */}
       <section ref={mapRef} className={styles.mapSection}>
         <div className={styles.sectionHeader}>
           <div>
-            <h2 className={styles.sectionTitle}>Common Operating Telemetry Map</h2>
-            <p className={styles.sectionSubtitle}>Interactive spatial layers displaying incidents, emergency shelters, supply stockpiles, and en route logistics convoys.</p>
+            <h2 className={styles.sectionTitle}>Common Operating Picture (COP) Telemetry Map</h2>
+            <p className={styles.sectionSubtitle}>
+              Live MapLibre GIS visualizing verified disaster perimeters, hospital bed availability, emergency shelters, depot stockpiles, field responders, and active convoy transit corridors.
+            </p>
           </div>
 
           {/* Layer controls */}
@@ -364,7 +610,7 @@ export const CommandCenter: React.FC = () => {
               onClick={() => setIsLayersOpen(!isLayersOpen)}
             >
               <Layers size={13} />
-              <span>{t('map.legendTitle')}</span>
+              <span>MAP LAYERS</span>
             </button>
 
             {isLayersOpen && (
@@ -385,7 +631,7 @@ export const CommandCenter: React.FC = () => {
                 <div className={styles.dropdownDivider} />
                 <div className={styles.dropdownSection}>
                   <span className={styles.dropdownLabel}>Severity Legend</span>
-                  <div className={styles.legendRow}><span className={`${styles.legendDot} ${styles.ldCritical}`} />CRITICAL INCIDENT</div>
+                  <div className={styles.legendRow}><span className={`${styles.legendDot} ${styles.ldCritical}`} />CRITICAL DISASTER</div>
                   <div className={styles.legendRow}><span className={`${styles.legendDot} ${styles.ldHigh}`} />HIGH SEVERITY</div>
                   <div className={styles.legendRow}><span className={`${styles.legendDot} ${styles.ldMedium}`} />MEDIUM RISK</div>
                   <div className={styles.legendRow}><span className={`${styles.legendDot} ${styles.ldShelter}`} />SAFE SHELTER FACILITY</div>
@@ -402,26 +648,33 @@ export const CommandCenter: React.FC = () => {
             resources={resources}
             vehicles={vehicles}
             shelters={shelters}
+            demands={requests}
+            hospitals={hospitals}
+            responders={responders}
+            hazardZones={hazardZones}
+            missions={missions}
             selectedIncident={selectedItem?.type === 'incident' ? selectedItem.obj : null}
             selectedVehicle={selectedItem?.type === 'vehicle' ? selectedItem.obj : null}
             onSelectIncident={(i) => setSelectedItem({ type: 'incident', obj: i })}
             onSelectVehicle={(v) => setSelectedItem({ type: 'vehicle', obj: v })}
             onSelectShelter={(s) => setSelectedItem({ type: 'shelter', obj: s })}
+            onSelectDemand={(d) => setSelectedItem({ type: 'demand', obj: d })}
+            onSelectResource={(r) => setSelectedItem({ type: 'resource', obj: r })}
             layerFilters={layerFilters}
           />
         </div>
       </section>
 
-      {/* 5. WORKFLOW GRID: INCIDENTS, INSPECTOR & LIVE AUDIT TRAIL */}
+      {/* ─── 7. WORKFLOW GRID: ACTIVE INCIDENTS, DEEP INSPECTOR & LIVE ACTIVITY FEED ─── */}
       <section ref={detailsRef} className={styles.detailsGridSection}>
-        <div className={styles.gridCols}>
+        <div className={styles.gridCols} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
 
-          {/* Priority Incidents Feed Column */}
+          {/* Column 1: Active Disaster Response Cases */}
           <div className={styles.gridCol}>
             <div className={styles.gridColHeader}>
-              <h3>Active Disaster Response Cases</h3>
+              <h3>Active Response Cases</h3>
               <Link to="/operations/incidents" className={styles.viewRegistryLink}>
-                All Cases ({incidents.length}) <ArrowRight size={12} />
+                All ({incidents.length}) <ArrowRight size={12} />
               </Link>
             </div>
 
@@ -430,33 +683,35 @@ export const CommandCenter: React.FC = () => {
                 <div style={{ padding: '32px 16px', textAlign: 'center', color: 'rgba(250, 248, 243, 0.65)', fontSize: '13px', fontWeight: 600 }}>
                   No active incidents recorded.
                 </div>
-              ) : topIncidents.map((incident) => (
-                <button
-                  key={incident.id}
-                  className={`${styles.incidentRow} ${selectedItem?.obj?.id === incident.id ? styles.incidentRowActive : ''}`}
-                  onClick={() => setSelectedItem({ type: 'incident', obj: incident })}
-                >
-                  <div className={`${styles.sevBar} ${styles['sev_' + incident.severity]}`} />
-                  <div className={styles.incContent}>
-                    <div className={styles.incHeaderRow}>
-                      <span className={styles.incId}>{incident.id}</span>
-                      <span className={`${styles.sevBadge} ${styles['badge_' + incident.severity]}`}>
-                        {incident.severity}
-                      </span>
-                      <span style={{ fontSize: '10px', color: 'rgba(250,248,243,0.5)', marginLeft: 'auto' }}>
-                        {incident.status.replace(/_/g, ' ')}
-                      </span>
+              ) : (
+                topIncidents.map((incident) => (
+                  <button
+                    key={incident.id}
+                    className={`${styles.incidentRow} ${selectedItem?.obj?.id === incident.id ? styles.incidentRowActive : ''}`}
+                    onClick={() => setSelectedItem({ type: 'incident', obj: incident })}
+                  >
+                    <div className={`${styles.sevBar} ${styles['sev_' + incident.severity]}`} />
+                    <div className={styles.incContent}>
+                      <div className={styles.incHeaderRow}>
+                        <span className={styles.incId}>{incident.id}</span>
+                        <span className={`${styles.sevBadge} ${styles['badge_' + incident.severity]}`}>
+                          {incident.severity}
+                        </span>
+                        <span style={{ fontSize: '10px', color: 'rgba(250,248,243,0.5)', marginLeft: 'auto' }}>
+                          {incident.status.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <div className={styles.incType}>{incident.type.replace(/_/g, ' ')}</div>
+                      <div className={styles.incLocation}><MapPin size={10} /> {incident.location}</div>
                     </div>
-                    <div className={styles.incType}>{incident.type.replace(/_/g, ' ')}</div>
-                    <div className={styles.incLocation}><MapPin size={10} /> {incident.location}</div>
-                  </div>
-                  <ChevronRight size={14} className={styles.rowArrow} />
-                </button>
-              ))}
+                    <ChevronRight size={14} className={styles.rowArrow} />
+                  </button>
+                ))
+              )}
             </div>
           </div>
 
-          {/* Interactive Inspection Column */}
+          {/* Column 2: Selected Entity Telemetry / Deep Inspector */}
           <div className={styles.gridCol}>
             <div className={styles.gridColHeader}>
               <h3>Selected Entity Telemetry</h3>
@@ -492,6 +747,21 @@ export const CommandCenter: React.FC = () => {
                     </div>
                   )}
 
+                  {selectedItem.type === 'demand' && (
+                    <div className={styles.inspectorDetails}>
+                      <span className={styles.inspectorSubtitle}>DEMAND REQUEST FILE</span>
+                      <h4 className={styles.inspectorTitle}>{selectedItem.obj.itemNeeded}</h4>
+                      <p className={styles.inspectorLoc}><MapPin size={11} /> {selectedItem.obj.zoneName}</p>
+                      <div className={styles.metaRow}>
+                        <span className={styles.metaBadge}>Volume: {selectedItem.obj.quantity} {selectedItem.obj.unit}</span>
+                        <span className={styles.metaBadge}>Priority: {selectedItem.obj.priority}</span>
+                      </div>
+                      <Link to={`/operations/matching?requestId=${selectedItem.obj.id}`} className={styles.inspectCta}>
+                        Run Resource Matching &rarr;
+                      </Link>
+                    </div>
+                  )}
+
                   {selectedItem.type === 'vehicle' && (
                     <div className={styles.inspectorDetails}>
                       <span className={styles.inspectorSubtitle}>LOGISTICS FLEET TELEMETRY</span>
@@ -502,7 +772,7 @@ export const CommandCenter: React.FC = () => {
                         <span className={styles.metaBadge}>Capacity: {selectedItem.obj.capacity}</span>
                       </div>
                       {selectedItem.obj.cargo && (
-                        <p className={styles.inspectorDesc} style={{ color: '#E86F16' }}>
+                        <p className={styles.inspectorDesc} style={{ color: '#FFAE73' }}>
                           Cargo: <strong>{selectedItem.obj.cargo}</strong>
                         </p>
                       )}
@@ -526,23 +796,38 @@ export const CommandCenter: React.FC = () => {
                       </Link>
                     </div>
                   )}
+
+                  {selectedItem.type === 'resource' && (
+                    <div className={styles.inspectorDetails}>
+                      <span className={styles.inspectorSubtitle}>SUPPLY DEPOT STOCK</span>
+                      <h4 className={styles.inspectorTitle}>{selectedItem.obj.name}</h4>
+                      <p className={styles.inspectorLoc}><Package size={11} /> {selectedItem.obj.locationName}</p>
+                      <div className={styles.metaRow}>
+                        <span className={styles.metaBadge}>Available: {selectedItem.obj.quantity} {selectedItem.obj.unit}</span>
+                        <span className={styles.metaBadge}>Status: {selectedItem.obj.status}</span>
+                      </div>
+                      <Link to="/operations/resources" className={styles.inspectCta}>
+                        View Depot Registry &rarr;
+                      </Link>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className={styles.inspectorPlaceholder}>
                   <AlertTriangle size={24} className={styles.phIcon} />
-                  <p>Click any incident, vehicle, or shelter marker on the map to inspect live data.</p>
+                  <p>Click any incident, vehicle, demand, or shelter on the map or list to inspect live operational data.</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Audit Trail / Activity Stream Column */}
+          {/* Column 3: Live Operational Activity Feed & Audit Trail */}
           <div className={styles.gridCol}>
             <div className={styles.gridColHeader}>
-              <h3>Audit &amp; Operational Log</h3>
-              <span style={{ fontSize: '10px', color: '#10B981', fontWeight: 700, letterSpacing: '0.06em' }}>
-                ● REAL-TIME LEDGER
-              </span>
+              <h3>Activity &amp; Audit Trail</h3>
+              <Link to="/operations/audit" className={styles.viewRegistryLink}>
+                All Logs <ArrowRight size={12} />
+              </Link>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '340px', paddingRight: '4px' }}>
@@ -556,14 +841,16 @@ export const CommandCenter: React.FC = () => {
                     padding: '10px 12px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '4px'
+                    gap: '4px',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '11px', fontWeight: 700, color: '#FAF8F3' }}>{log.action}</span>
-                    <span style={{ fontSize: '9px', color: 'rgba(250, 248, 243, 0.45)' }}>{fmtTimeAgo(log.timestamp)}</span>
+                    <span style={{ fontSize: '9px', color: 'rgba(250, 248, 243, 0.45)', fontFamily: 'var(--font-mono)' }}>
+                      {fmtTimeAgo(log.timestamp)}
+                    </span>
                   </div>
-                  <div style={{ fontSize: '10px', color: '#E86F16', fontWeight: 600 }}>
+                  <div style={{ fontSize: '10px', color: '#FFAE73', fontWeight: 600 }}>
                     {log.target}
                   </div>
                   <div style={{ fontSize: '10px', color: 'rgba(250, 248, 243, 0.65)' }}>

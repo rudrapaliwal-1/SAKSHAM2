@@ -369,6 +369,8 @@ export const OperationalStateProvider: React.FC<{ children: React.ReactNode }> =
     setAuditLogs(prev => [newLog, ...prev]);
   };
 
+
+
   // Attempt to fetch from backend API if active
   useEffect(() => {
     let isMounted = true;

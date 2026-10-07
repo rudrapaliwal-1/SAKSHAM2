@@ -664,6 +664,342 @@
   color: #D55E0E;
 }
 
+/* ── 5. Core Operational Questions Grid (6 Questions) ── */
+.opQuestionsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 1024px) {
+  .opQuestionsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .opQuestionsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.opQuestionCard {
+  background: rgba(11, 33, 25, 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(250, 248, 243, 0.1);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.opQuestionCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(232, 111, 22, 0.4);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.opQuestionCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background-color: #E86F16;
+}
+
+.opQuestionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.opQuestionIcon {
+  color: #FFAE73;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.opQuestionTitle {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #FFAE73;
+  text-transform: uppercase;
+}
+
+.opQuestionHeadline {
+  font-size: 13px;
+  font-weight: 700;
+  color: #FAF8F3;
+  line-height: 1.35;
+}
+
+.opQuestionDetail {
+  font-size: 11px;
+  color: rgba(250, 248, 243, 0.7);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* ── 6. Critical Alerts Section ── */
+.alertsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.alertBanner {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 6px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #FAF8F3;
+  flex-wrap: wrap;
+}
+
+.alertBannerHigh {
+  background: rgba(249, 115, 22, 0.12);
+  border-color: rgba(249, 115, 22, 0.35);
+}
+
+.alertContent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 260px;
+  flex: 1;
+}
+
+.alertTitle {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #FF8F85;
+  text-transform: uppercase;
+}
+
+.alertBannerHigh .alertTitle {
+  color: #FFAE73;
+}
+
+.alertMsg {
+  font-size: 11.5px;
+  color: rgba(250, 248, 243, 0.9);
+}
+
+.alertActionBtn {
+  background: rgba(239, 68, 68, 0.25);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #FFF;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 4px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.alertActionBtn:hover {
+  background: #EF4444;
+}
+
+.alertBannerHigh .alertActionBtn {
+  background: rgba(249, 115, 22, 0.25);
+  border-color: rgba(249, 115, 22, 0.5);
+}
+
+.alertBannerHigh .alertActionBtn:hover {
+  background: #F97316;
+}
+
+/* ── 7. KPI Interactive Grid ── */
+.kpiSection {
+  margin-bottom: 28px;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 1100px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kpiCard {
+  background: rgba(11, 33, 25, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(250, 248, 243, 0.1);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.kpiCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(232, 111, 22, 0.5);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.kpiCardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.kpiLabel {
+  font-family: var(--font-mono), monospace;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: rgba(250, 248, 243, 0.5);
+  text-transform: uppercase;
+}
+
+.kpiIcon {
+  color: #FFAE73;
+}
+
+.kpiValue {
+  font-family: var(--font-mono), monospace;
+  font-size: 26px;
+  font-weight: 900;
+  color: #FAF8F3;
+  line-height: 1;
+}
+
+.kpiSub {
+  font-size: 10.5px;
+  color: rgba(250, 248, 243, 0.65);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── 8. Requires Attention Section ── */
+.attentionSection {
+  background: rgba(11, 33, 25, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(232, 111, 22, 0.3);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 28px;
+}
+
+.attentionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.attentionTitle {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #FFAE73;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.attentionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 960px) {
+  .attentionGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.attentionCard {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.attentionCard:hover {
+  border-color: rgba(232, 111, 22, 0.4);
+}
+
+.attentionItemTitle {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #FAF8F3;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.attentionItemDesc {
+  font-size: 11px;
+  color: rgba(250, 248, 243, 0.7);
+  line-height: 1.35;
+  margin: 0;
+}
+
+.attentionBtn {
+  background: #E86F16;
+  color: #0B2119;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 4px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: background 0.15s ease;
+  margin-top: 4px;
+}
+
+.attentionBtn:hover {
+  background: #F97316;
+}
+
 @media (max-width: 860px) {
   .gridCols {
     grid-template-columns: 1fr;
