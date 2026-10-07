@@ -1,4 +1,5 @@
 import { prisma } from '../../db/db.js';
+import { inMemoryStore } from '../../db/inMemoryStore.js';
 import { calculateHaversineDistance } from '../../utils/distance.js';
 import { MATCH_WEIGHTS, COMPATIBLE_CATEGORIES } from './matching.constants.js';
 import { ResourceStatus, DemandStatus } from '@prisma/client';
@@ -29,6 +30,8 @@ export interface Recommendation {
 
 export interface MatchingOutput {
   status: 'MATCHES_FOUND' | 'PARTIAL_MATCHES_FOUND' | 'NO_MATCH_FOUND';
+  demandId?: string;
+  matches?: Array<{ resourceId: string; name: string; score: number; distanceKm: number; breakdown: ScoreBreakdown; recommended: boolean }>;
   results: Recommendation[];
   bestMatch: Recommendation | null;
   fullCoveragePossible: boolean;
@@ -40,25 +43,98 @@ export class MatchingService {
    * Generates ranked recommendations for a given demand request.
    */
   static async getRecommendations(demandId: string): Promise<MatchingOutput> {
-    // 1. Fetch demand details along with incident coordinates
-    const demand = await prisma.demandRequest.findUnique({
-      where: { id: demandId },
-      include: { incident: true },
-    });
+    try {
+      // 1. Fetch demand details along with incident coordinates
+      const demand = await prisma.demandRequest.findUnique({
+        where: { id: demandId },
+        include: { incident: true },
+      });
 
-    if (!demand) {
-      throw new Error(`Demand request ${demandId} not found.`);
+      if (!demand) {
+        throw new Error(`Demand request ${demandId} not found.`);
+      }
+
+      // Determine compatible resource categories
+      const compatibleCats = COMPATIBLE_CATEGORIES[demand.requestedType] ?? [demand.requestedType];
+
+      // 2. Fetch candidate resources matching the categories
+      const resources = await prisma.resource.findMany({
+        where: {
+          category: { in: compatibleCats },
+        },
+      });
+
+      return MatchingService.rankResources(
+        demand.quantity,
+        demand.requestedType,
+        demand.priority,
+        demand.incident.latitude,
+        demand.incident.longitude,
+        resources.map(r => ({
+          id: r.id,
+          materialName: r.materialName,
+          category: r.category,
+          storageDepot: r.storageDepot,
+          availableQuantity: r.availableQuantity,
+          reservedQuantity: r.reservedQuantity,
+          unit: r.unit,
+          status: r.status,
+          latitude: r.latitude,
+          longitude: r.longitude,
+        })),
+        demandId
+      );
+    } catch (err: any) {
+      // Fallback to inMemoryStore
+      const inMemDemand = inMemoryStore.getDemandById(demandId);
+      if (!inMemDemand) {
+        throw new Error(`Demand request ${demandId} not found.`);
+      }
+
+      const inMemResources = inMemoryStore.getResources();
+      return MatchingService.rankResources(
+        inMemDemand.quantity,
+        inMemDemand.category || inMemDemand.itemNeeded,
+        inMemDemand.priority,
+        inMemDemand.coordinates.lat,
+        inMemDemand.coordinates.lng,
+        inMemResources.map(r => ({
+          id: r.id,
+          materialName: r.name,
+          category: r.category,
+          storageDepot: r.locationName,
+          availableQuantity: r.quantity,
+          reservedQuantity: r.allocatedQuantity ?? 0,
+          unit: r.unit,
+          status: r.status as any,
+          latitude: r.coordinates.lat,
+          longitude: r.coordinates.lng,
+        })),
+        demandId
+      );
     }
+  }
 
-    // Determine compatible resource categories
-    const compatibleCats = COMPATIBLE_CATEGORIES[demand.requestedType] ?? [demand.requestedType];
-
-    // 2. Fetch candidate resources matching the categories
-    const resources = await prisma.resource.findMany({
-      where: {
-        category: { in: compatibleCats },
-      },
-    });
+  private static rankResources(
+    demandQuantity: number,
+    requestedType: string,
+    demandPriority: string,
+    demandLat: number,
+    demandLng: number,
+    resources: Array<{
+      id: string;
+      materialName: string;
+      category: string;
+      storageDepot: string;
+      availableQuantity: number;
+      reservedQuantity: number;
+      unit: string;
+      status: ResourceStatus;
+      latitude: number;
+      longitude: number;
+    }>,
+    demandId?: string
+  ): MatchingOutput {
 
     const recommendations: Recommendation[] = [];
 
@@ -78,30 +154,30 @@ export class MatchingService {
 
       // Calculate availability parameters
       const unreservedQty = res.availableQuantity - res.reservedQuantity;
-      const canFullyFulfill = unreservedQty >= demand.quantity;
+      const canFullyFulfill = unreservedQty >= demandQuantity;
 
       // Distance calculation
       const dist = calculateHaversineDistance(
-        demand.incident.latitude,
-        demand.incident.longitude,
+        demandLat,
+        demandLng,
         res.latitude,
         res.longitude
       );
       const distKm = Math.round(dist * 10) / 10;
 
       // Compatibility Score (35%)
-      const compatScore = MATCH_WEIGHTS.COMPATIBILITY; // 100% compatible if passed through DB filter
+      const compatScore = MATCH_WEIGHTS.COMPATIBILITY;
 
       // Availability Score (25%)
       let availScore = 0;
       let availReason = '';
       if (canFullyFulfill) {
         availScore = MATCH_WEIGHTS.AVAILABILITY;
-        availReason = `Sufficient quantity is available: ${unreservedQty.toLocaleString()} ${res.unit} (requires ${demand.quantity.toLocaleString()}).`;
+        availReason = `Sufficient quantity is available: ${unreservedQty.toLocaleString()} ${res.unit} (requires ${demandQuantity.toLocaleString()}).`;
       } else {
-        const ratio = unreservedQty / demand.quantity;
+        const ratio = unreservedQty / demandQuantity;
         availScore = Math.round(MATCH_WEIGHTS.AVAILABILITY * ratio);
-        availReason = `Partial stock: ${unreservedQty.toLocaleString()} of ${demand.quantity.toLocaleString()} ${res.unit} available (${Math.round(ratio * 100)}% of demand).`;
+        availReason = `Partial stock: ${unreservedQty.toLocaleString()} of ${demandQuantity.toLocaleString()} ${res.unit} available (${Math.round(ratio * 100)}% of demand).`;
       }
 
       // Distance Score (20%)
@@ -118,9 +194,9 @@ export class MatchingService {
       // Priority Score (10%)
       let prioScore = 0;
       const wPrio = MATCH_WEIGHTS.PRIORITY;
-      if (demand.priority === 'CRITICAL') prioScore = wPrio;
-      else if (demand.priority === 'HIGH') prioScore = Math.round(wPrio * 0.85);
-      else if (demand.priority === 'MEDIUM') prioScore = Math.round(wPrio * 0.65);
+      if (demandPriority === 'CRITICAL') prioScore = wPrio;
+      else if (demandPriority === 'HIGH') prioScore = Math.round(wPrio * 0.85);
+      else if (demandPriority === 'MEDIUM') prioScore = Math.round(wPrio * 0.65);
       else prioScore = Math.round(wPrio * 0.45);
 
       // Readiness Score (10%)
@@ -155,7 +231,7 @@ export class MatchingService {
         category: res.category,
         storageDepot: res.storageDepot,
         availableQuantity: unreservedQty,
-        requestedQuantity: demand.quantity,
+        requestedQuantity: demandQuantity,
         canFullyFulfill,
         distanceKm: distKm,
         score: finalScore,
@@ -192,22 +268,33 @@ export class MatchingService {
       const combo: Array<{ resourceId: string; quantity: number }> = [];
 
       for (const rec of recommendations) {
-        if (accumulated >= demand.quantity) break;
-        const take = Math.min(rec.availableQuantity, demand.quantity - accumulated);
+        if (accumulated >= demandQuantity) break;
+        const take = Math.min(rec.availableQuantity, demandQuantity - accumulated);
         if (take > 0) {
           combo.push({ resourceId: rec.resourceId, quantity: take });
           accumulated += take;
         }
       }
 
-      if (accumulated >= demand.quantity) {
+      if (accumulated >= demandQuantity) {
         fullCoveragePossible = true;
         candidateCombination = combo;
       }
     }
 
+    const matches = recommendations.map((r, i) => ({
+      resourceId: r.resourceId,
+      name: r.name,
+      score: r.score,
+      distanceKm: r.distanceKm,
+      breakdown: r.breakdown,
+      recommended: i === 0,
+    }));
+
     return {
       status,
+      demandId,
+      matches,
       results: recommendations,
       bestMatch,
       fullCoveragePossible,

@@ -9,6 +9,7 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const api_js_1 = require("./routes/api.js");
 const matching_routes_js_1 = require("./modules/matching/matching.routes.js");
 const allocations_routes_js_1 = require("./routes/allocations.routes.js");
+const decision_routes_js_1 = require("./modules/decision/decision.routes.js");
 const zod_1 = require("zod");
 // Load environment variables
 dotenv_1.default.config();
@@ -26,6 +27,7 @@ app.use((req, res, next) => {
 app.use('/api', api_js_1.apiRouter);
 app.use('/api/matching', matching_routes_js_1.matchingRouter);
 app.use('/api/allocations', allocations_routes_js_1.allocationsRouter);
+app.use('/api/decision', decision_routes_js_1.decisionRouter);
 // Base route
 app.get('/', (req, res) => {
     res.json({

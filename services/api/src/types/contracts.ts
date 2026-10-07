@@ -1,8 +1,7 @@
 /**
  * SAKSHAM Unified Disaster Response Domain Contracts & Interfaces
  * ─────────────────────────────────────────────────────────────────
- * Shared canonical data contracts across Frontend, Backend Services,
- * and Optimization Engines.
+ * Canonical domain contracts for SAKSHAM backend service and operational engine.
  */
 
 // ── 1. Common Enums & Geolocation ──────────────────────────────────────────

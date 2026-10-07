@@ -270,8 +270,8 @@ const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
           <span className={styles.rpMetaVal}>{res.quantity.toLocaleString()} {res.unit}</span>
         </div>
         <div className={styles.rpMetaCell}>
-          <span className={styles.rpMetaLabel}>DISTANCE</span>
-          <span className={styles.rpMetaVal}>{bestMatch.distanceKm} km</span>
+          <span className={styles.rpMetaLabel}>DISTANCE & ETA</span>
+          <span className={styles.rpMetaVal}>{bestMatch.distanceKm} km ({bestMatch.estimatedDeliveryTime})</span>
         </div>
         <div className={styles.rpMetaCell}>
           <span className={styles.rpMetaLabel}>FULFILLMENT</span>
@@ -282,7 +282,20 @@ const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
       </div>
 
       <div className={styles.rpReasons}>
-        <span className={styles.rpSectionLabel}>WHY THIS MATCH?</span>
+        <span className={styles.rpSectionLabel}>EXPLAINABLE DECISION REASONING</span>
+        <div style={{
+          padding: '10px 12px',
+          background: 'rgba(11, 33, 25, 0.04)',
+          borderRadius: '6px',
+          fontSize: '0.82rem',
+          lineHeight: '1.45',
+          marginBottom: '10px',
+          color: '#1e293b',
+          borderLeft: '3px solid #0B2119',
+          fontWeight: 500
+        }}>
+          "{bestMatch.explainableSentence}"
+        </div>
         {bestMatch.reasoning.map((r, i) => (
           <div key={i} className={styles.rpReason} style={{ animationDelay: `${i * 100 + 200}ms` }}>
             <Check size={9} className={styles.rpCheck} />

@@ -50,6 +50,9 @@ export interface MatchResult {
   requestedQuantity: number;
   canFullyFulfill: boolean;
   distanceKm: number;
+  estimatedDeliveryMinutes: number;
+  estimatedDeliveryTime: string;
+  explainableSentence: string;
   qualityLabel: MatchQuality;
   reasoning: string[];         // Human-readable explanation per component
   rank: number;
@@ -295,6 +298,14 @@ export function matchResources(
     const canFullyFulfill =
       resource.status === 'AVAILABLE' && resource.quantity >= demand.quantity;
 
+    const estMinutes = Math.max(4, Math.round((dist.distanceKm / 45) * 60 + 4));
+    const estDeliveryTime = `~${estMinutes} mins`;
+    const isComp = categoryScore(demand.category, resource.category) > 0;
+
+    const explainableSentence = isComp
+      ? `Recommended Resource ${resource.id} because it satisfies the requested ${demand.category.toLowerCase()} category, has ${canFullyFulfill ? 'sufficient stock' : 'partial stock'} (${resource.quantity.toLocaleString()} ${resource.unit} available vs ${demand.quantity.toLocaleString()} requested), is ${dist.distanceKm} km away (${estDeliveryTime} transit), and the request is ${demand.priority}.`
+      : `Resource ${resource.id} (${resource.category}) is incompatible with requested ${demand.category} demand.`;
+
     results.push({
       resourceId: resource.id,
       matchScore: total,
@@ -310,6 +321,9 @@ export function matchResources(
       requestedQuantity:  demand.quantity,
       canFullyFulfill,
       distanceKm:         dist.distanceKm,
+      estimatedDeliveryMinutes: estMinutes,
+      estimatedDeliveryTime: estDeliveryTime,
+      explainableSentence,
       qualityLabel:       qualityLabel(total),
       reasoning: [
         avail.reasoning,

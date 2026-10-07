@@ -1,0 +1,10 @@
+{
+  "name": "@saksham/contracts",
+  "version": "1.0.0",
+  "description": "Unified contracts for SAKSHAM Disaster Response Platform",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  }
+}

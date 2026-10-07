@@ -5,10 +5,8 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     testTimeout: 30000,
-    // Resolve .js extension imports (TypeScript NodeNext style) to .ts sources
-    alias: {
-      // vitest + tsx handles .js → .ts resolution automatically via tsx
-    },
+    include: ['src/**/*.test.ts'],
+    exclude: ['dist/**', 'node_modules/**'],
   },
   esbuild: {
     // treat .ts files with tsx for proper compilation

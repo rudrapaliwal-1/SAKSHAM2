@@ -64,20 +64,11 @@ export const IncidentWorkspace: React.FC = () => {
     return () => ctx.revert();
   }, [incident]);
 
-  if (!incident) {
-    return (
-      <div className={styles.notFoundContainer}>
-        <h3>Incident Record Not Found</h3>
-        <p>The requested reference ID ({incidentId}) could not be located in the operational database.</p>
-        <Link to="/operations/incidents" className={styles.backBtn}>Return to Registry</Link>
-      </div>
-    );
-  }
-
   // Related requests (demands) connected to this incident
   const incidentRequests = useMemo(() => {
+    if (!incident) return [];
     return requests.filter(r => r.incidentId === incident.id);
-  }, [requests, incident.id]);
+  }, [requests, incident]);
 
   // Active Dispatch missions associated with this incident
   const activeDispatches = useMemo(() => {
@@ -95,13 +86,6 @@ export const IncidentWorkspace: React.FC = () => {
     });
   }, [missions, incidentRequests, vehicles]);
 
-  // Determine stage levels
-  const stages = ['REPORTED', 'VERIFIED', 'PRIORITIZED', 'RESOURCE_MATCHED', 'DISPATCHED', 'UNDER_RESPONSE', 'RESOLVED'];
-  const statusOrder: Record<string, number> = {
-    REPORTED: 0, VERIFIED: 1, PRIORITIZED: 2, RESOURCE_MATCHED: 3, DISPATCHED: 4, UNDER_RESPONSE: 5, RESOLVED: 6, ACTIVE: 2
-  };
-  const currentStageIndex = statusOrder[incident.status] ?? 0;
-
   // Custom Delhi zone shelters nearby
   const nearbyShelters = useMemo(() => {
     return shelters.slice(0, 2);
@@ -118,6 +102,7 @@ export const IncidentWorkspace: React.FC = () => {
 
   // Primary action button calculation
   const primaryAction = useMemo(() => {
+    if (!incident) return null;
     switch (incident.status) {
       case 'REPORTED':
       case 'VERIFIED':
@@ -176,7 +161,24 @@ export const IncidentWorkspace: React.FC = () => {
       default:
         return null;
     }
-  }, [incident.status, incidentRequests, requests, navigate, updateIncidentStatus, incident.id, incidentClosureCheck]);
+  }, [incident, incidentRequests, requests, navigate, updateIncidentStatus, incidentClosureCheck]);
+
+  if (!incident) {
+    return (
+      <div className={styles.notFoundContainer}>
+        <h3>Incident Record Not Found</h3>
+        <p>The requested reference ID ({incidentId}) could not be located in the operational database.</p>
+        <Link to="/operations/incidents" className={styles.backBtn}>Return to Registry</Link>
+      </div>
+    );
+  }
+
+  // Determine stage levels
+  const stages = ['REPORTED', 'VERIFIED', 'PRIORITIZED', 'RESOURCE_MATCHED', 'DISPATCHED', 'UNDER_RESPONSE', 'RESOLVED'];
+  const statusOrder: Record<string, number> = {
+    REPORTED: 0, VERIFIED: 1, PRIORITIZED: 2, RESOURCE_MATCHED: 3, DISPATCHED: 4, UNDER_RESPONSE: 5, RESOLVED: 6, ACTIVE: 2
+  };
+  const currentStageIndex = statusOrder[incident.status] ?? 0;
 
   const severityColors: Record<string, string> = {
     CRITICAL: '#DC2626',
