@@ -10,6 +10,7 @@ import {
   X,
   LogOut,
   User,
+  RotateCcw,
 } from 'lucide-react';
 import styles from './OperationsLayout.module.css';
 import { ConnectionIndicator } from '../components/ui/SystemStates';
@@ -36,6 +37,8 @@ export const OperationsLayout: React.FC = () => {
   const queryClient = useQueryClient();
   const {
     isOffline,
+    dataMode,
+    resetToDemoDataset,
     addToast,
     setIncidents,
     setRequests,
@@ -465,6 +468,20 @@ export const OperationsLayout: React.FC = () => {
         </div>
 
         <div className={styles.topbarRight}>
+          {/* Demo Mode Indicator & Reset Trigger */}
+          <span className={styles.demoModeBadge} title="Running on deterministic Indian disaster scenario (Delhi Yamuna flood surge)">
+            {dataMode === 'LIVE_BACKEND' ? '● LIVE BACKEND' : '● DEMO MODE'}
+          </span>
+          <button
+            className={styles.resetDemoBtn}
+            onClick={resetToDemoDataset}
+            title="Reset to deterministic baseline scenario data"
+            aria-label="Reset Demo Scenario"
+          >
+            <RotateCcw size={11} />
+            <span>RESET DEMO</span>
+          </button>
+
           <LanguageSwitcher variant="navbar" />
           <ConnectionIndicator isOffline={isOffline} />
 

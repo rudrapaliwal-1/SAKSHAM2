@@ -126,7 +126,51 @@
 .topbarRight {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
+}
+
+.demoModeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background-color: rgba(232, 111, 22, 0.12);
+  color: #C05600;
+  border: 1px solid rgba(232, 111, 22, 0.35);
+  white-space: nowrap;
+}
+
+.resetDemoBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 4px 9px;
+  border-radius: 4px;
+  background-color: rgba(11, 33, 25, 0.05);
+  border: 1px solid rgba(11, 33, 25, 0.18);
+  color: #0B2119;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.resetDemoBtn:hover {
+  background-color: rgba(11, 33, 25, 0.12);
+  border-color: rgba(11, 33, 25, 0.35);
+  transform: translateY(-1px);
+}
+
+.resetDemoBtn:active {
+  transform: translateY(0);
 }
 
 .clockArea {
