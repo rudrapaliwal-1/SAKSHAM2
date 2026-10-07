@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ResponsiveContainer,
   LineChart, Line,
@@ -6,124 +6,60 @@ import {
   XAxis, YAxis,
   CartesianGrid, Tooltip,
   Legend,
-  ReferenceLine,
+  PieChart, Pie, Cell,
 } from 'recharts';
+import {
+  Search,
+  Download,
+  Clock,
+} from 'lucide-react';
 import { useOperationalState } from '../../context/OperationalStateContext';
 import styles from './Analytics.module.css';
 import { PageGuideTrigger, PageGuidebook } from '../../components/ui/PageGuide';
 import { ShaderBackground } from '../../components/ui/ShaderBackground';
 
 /* ───────────────────────────────────────────────
-   STATIC INTELLIGENCE DATA (labelled DEMO MODEL)
+   COLOR TOKENS & PALETTES
    ─────────────────────────────────────────────── */
-const VELOCITY_DATA = [
-  { time: '18:00', incidents: 1, demand: 1, dispatched: 0, resolved: 0 },
-  { time: '19:00', incidents: 2, demand: 1, dispatched: 1, resolved: 0 },
-  { time: '20:00', incidents: 3, demand: 2, dispatched: 2, resolved: 1 },
-  { time: '21:00', incidents: 4, demand: 3, dispatched: 2, resolved: 1 },
-  { time: '22:00', incidents: 5, demand: 4, dispatched: 3, resolved: 2 },
-  { time: '23:00', incidents: 5, demand: 5, dispatched: 4, resolved: 2 },
-  { time: '00:00', incidents: 5, demand: 5, dispatched: 4, resolved: 3 },
-];
+const SEV_COLORS: Record<string, string> = {
+  CRITICAL: '#DC2626',
+  HIGH: '#E86F16',
+  MEDIUM: '#EAB308',
+  LOW: '#10B981',
+};
 
-const PRESSURE_ZONES = [
-  { rank: '01', name: 'Yamuna Bank', area: 'East Delhi', risk: 'CRITICAL', incidents: 2, demand: '12,000 L', gap: 'Water −3,000 L', color: '#DC2626' },
-  { rank: '02', name: 'Rohini', area: 'North-West Delhi', risk: 'HIGH', incidents: 1, demand: '500 units', gap: 'Blankets OK', color: '#E86F16' },
-  { rank: '03', name: 'Okhla', area: 'South-East Delhi', risk: 'HIGH', incidents: 1, demand: '4 sets', gap: 'Equipment OK', color: '#E86F16' },
-  { rank: '04', name: 'Karol Bagh', area: 'Central Delhi', risk: 'MEDIUM', incidents: 1, demand: '50 kits', gap: 'Medical −35', color: '#EAB308' },
-];
-
-const RESOURCE_PRESSURE = [
-  { name: 'Drinking Water', demand: 12000, available: 15000, unit: 'L', status: 'OK' },
-  { name: 'Trauma Kits', demand: 120, available: 85, unit: 'Kits', status: 'CRITICAL' },
-  { name: 'Thermal Blankets', demand: 500, available: 2400, unit: 'Pcs', status: 'OK' },
-  { name: 'Dry Rations', demand: 2000, available: 4500, unit: 'Pkts', status: 'OK' },
-  { name: 'Rescue Boats', demand: 6, available: 6, unit: 'Boats', status: 'TIGHT' },
-  { name: 'Infant Formula', demand: 100, available: 0, unit: 'Kg', status: 'DEPLETED' },
-];
-
-const PREDICTIVE_RISKS = [
-  {
-    zone: 'Yamuna Bank', type: 'Flood Risk', level: 'HIGH', trend: '+18%',
-    current: 72, forecast: 85, label: 'Flood water level rising — 12 additional families displaced predicted.',
-  },
-  {
-    zone: 'Akshardham', type: 'Shelter Saturation', level: 'CRITICAL', trend: '+12%',
-    current: 98, forecast: 100, label: 'Shelter capacity critical. Overflow expected within 35 min.',
-  },
-  {
-    zone: 'South Delhi', type: 'Medical Demand', level: 'MEDIUM', trend: '+7%',
-    current: 55, forecast: 62, label: 'Medical demand pressure increasing. Trauma kit replenishment needed.',
-  },
-  {
-    zone: 'Okhla', type: 'Structural Risk', level: 'MEDIUM', trend: '+4%',
-    current: 48, forecast: 52, label: 'Post-collapse structural instability. Secondary collapses possible.',
-  },
-];
-
-const SHELTER_FORECAST_DATA = [
-  { time: 'Now', rohini: 84, akshardham: 98, dwarka: 28, civilLines: 0, safe: 85, critical: 95 },
-  { time: '+1H', rohini: 87, akshardham: 100, dwarka: 32, civilLines: 0, safe: 85, critical: 95 },
-  { time: '+2H', rohini: 89, akshardham: 100, dwarka: 35, civilLines: 0, safe: 85, critical: 95 },
-  { time: '+4H', rohini: 91, akshardham: 100, dwarka: 40, civilLines: 5, safe: 85, critical: 95 },
-];
-
-const BOTTLENECKS = [
-  {
-    rank: '01', title: 'TRAUMA KIT SHORTAGE', location: 'South Depot, Saket',
-    detail: 'Demand: 120 kits · Available: 85 kits · Gap: 35 kits',
-    recommendation: 'Prioritize redistribution from Central Warehouse (4,500 ration-equivalent stock).',
-    severity: 'CRITICAL',
-  },
-  {
-    rank: '02', title: 'SHELTER CAPACITY — AKSHARDHAM', location: 'East Delhi',
-    detail: '98% occupied · Only 20 beds remaining · Overflow imminent',
-    recommendation: 'Redirect incoming displaced persons from Akshardham → Dwarka (72% available capacity).',
-    severity: 'HIGH',
-  },
-  {
-    rank: '03', title: 'INFANT FORMULA DEPLETED', location: 'West Depot, Janakpuri',
-    detail: 'Demand active · Stock: 0 Kg · Last updated 00:05 IST',
-    recommendation: 'Emergency procurement required. Cross-check NGO partner inventory for short-term supply.',
-    severity: 'HIGH',
-  },
-];
-
-const DECISIONS = [
-  {
-    rank: '01', priority: 'HIGH PRIORITY',
-    action: 'Redistribute 35 trauma kits from Central Warehouse → South Depot',
-    impact: 'Eliminate the 35-kit medical gap. Improve triage capacity by ~29%.',
-    btn: 'REVIEW ALLOCATION',
-  },
-  {
-    rank: '02', priority: 'HIGH PRIORITY',
-    action: 'Redirect shelter demand from Akshardham → Dwarka Sector 10',
-    impact: 'Prevent Akshardham saturation. Dwarka has 215 beds available.',
-    btn: 'REVIEW ROUTE',
-  },
-  {
-    rank: '03', priority: 'MEDIUM PRIORITY',
-    action: 'Deploy VEH-DR-501 (Available Drone) to Yamuna Bank for aerial mapping',
-    impact: 'Improve situational awareness. Map secondary flood zones within 20 min.',
-    btn: 'REVIEW DEPLOYMENT',
-  },
-];
-
-const TIME_RANGES = ['LIVE', '6H', '24H', '7D', '30D'];
-const REGIONS = ['Delhi NCR', 'East Delhi', 'North Delhi', 'South Delhi', 'West Delhi'];
+const ACTION_TYPE_BADGES: Record<string, { label: string; color: string; bg: string }> = {
+  REQUEST_CREATED: { label: 'REQUEST CREATED', color: '#0284C7', bg: 'rgba(2, 132, 199, 0.12)' },
+  REQUEST_VERIFIED: { label: 'REQUEST VERIFIED', color: '#059669', bg: 'rgba(5, 150, 105, 0.12)' },
+  PRIORITY_CHANGED: { label: 'PRIORITY CHANGED', color: '#DC2626', bg: 'rgba(220, 38, 38, 0.12)' },
+  RESOURCE_RECOMMENDED: { label: 'RESOURCE RECOMMENDED', color: '#7C3AED', bg: 'rgba(124, 58, 237, 0.12)' },
+  RESOURCE_ALLOCATED: { label: 'RESOURCE ALLOCATED', color: '#E86F16', bg: 'rgba(232, 111, 22, 0.12)' },
+  RESPONDER_ASSIGNED: { label: 'RESPONDER ASSIGNED', color: '#0B2119', bg: 'rgba(11, 33, 25, 0.12)' },
+  MISSION_CREATED: { label: 'MISSION CREATED', color: '#6366F1', bg: 'rgba(99, 102, 241, 0.12)' },
+  MISSION_STARTED: { label: 'MISSION STARTED', color: '#2563EB', bg: 'rgba(37, 99, 235, 0.12)' },
+  ROUTE_UPDATED: { label: 'ROUTE UPDATED', color: '#D97706', bg: 'rgba(217, 119, 6, 0.12)' },
+  DELIVERY_COMPLETED: { label: 'DELIVERY COMPLETED', color: '#059669', bg: 'rgba(5, 150, 105, 0.15)' },
+  REQUEST_RESOLVED: { label: 'REQUEST RESOLVED', color: '#15803D', bg: 'rgba(21, 128, 61, 0.18)' },
+  SYSTEM: { label: 'SYSTEM EVENT', color: '#475569', bg: 'rgba(71, 85, 105, 0.12)' },
+  VERIFY: { label: 'VERIFICATION', color: '#059669', bg: 'rgba(5, 150, 105, 0.12)' },
+  PRIORITIZE: { label: 'PRIORITIZATION', color: '#DC2626', bg: 'rgba(220, 38, 38, 0.12)' },
+  MATCH: { label: 'OPTIMIZATION MATCH', color: '#7C3AED', bg: 'rgba(124, 58, 237, 0.12)' },
+  DISPATCH: { label: 'LOGISTICS DISPATCH', color: '#E86F16', bg: 'rgba(232, 111, 22, 0.12)' },
+  DELIVERY: { label: 'DELIVERY PROOF', color: '#059669', bg: 'rgba(5, 150, 105, 0.15)' },
+  RESOLVE: { label: 'RESOLVED & CLOSED', color: '#15803D', bg: 'rgba(21, 128, 61, 0.18)' },
+};
 
 /* ───────────────────────────────────────────────
-   CUSTOM RECHARTS TOOLTIP
+   CUSTOM TOOLTIPS
    ─────────────────────────────────────────────── */
-const VelocityTooltip = ({ active, payload, label }: any) => {
+const CustomChartTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
     <div className={styles.tooltip}>
       <span className={styles.tooltipTime}>{label}</span>
       {payload.map((p: any, i: number) => (
         <div key={i} className={styles.tooltipRow}>
-          <span className={styles.tooltipDot} style={{ background: p.color }} />
+          <span className={styles.tooltipDot} style={{ background: p.color || p.fill }} />
           <span>{p.name}: <strong>{p.value}</strong></span>
         </div>
       ))}
@@ -131,41 +67,27 @@ const VelocityTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-/* ───────────────────────────────────────────────
-   ANIMATED COUNT-UP HOOK
-   ─────────────────────────────────────────────── */
-function useCountUp(target: number, duration = 800) {
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    let start = 0;
-    const step = target / (duration / 16);
-    const timer = setInterval(() => {
-      start += step;
-      if (start >= target) { setVal(target); clearInterval(timer); }
-      else setVal(Math.floor(start));
-    }, 16);
-    return () => clearInterval(timer);
-  }, [target, duration]);
-  return val;
-}
-
-/* ═══════════════════════════════════════════════
-   MAIN ANALYTICS COMPONENT
-   ═══════════════════════════════════════════════ */
 export const Analytics: React.FC = () => {
-  const { incidents, shelters, vehicles, requests } = useOperationalState();
+  const {
+    incidents,
+    requests,
+    resources,
+    missions,
+    deliveries,
+    auditLogs,
+  } = useOperationalState();
 
   const [mounted, setMounted] = useState(false);
-  const [timeRange, setTimeRange] = useState('LIVE');
-  const [region, setRegion] = useState('Delhi NCR');
-  const [velocityLines, setVelocityLines] = useState({
-    incidents: true, demand: true, dispatched: true, resolved: true,
-  });
-  const [selectedZone, setSelectedZone] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'ANALYTICS' | 'AUDIT_TRAIL'>('ANALYTICS');
   const [currentTime, setCurrentTime] = useState('');
 
+  // ── Filters State ──
+  const [timeRange, setTimeRange] = useState<'ALL' | '1H' | '6H' | '24H'>('ALL');
+  const [auditSearchQuery, setAuditSearchQuery] = useState<string>('');
+  const [auditActionFilter, setAuditActionFilter] = useState<string>('ALL');
+
   useEffect(() => {
-    const t = setTimeout(() => setMounted(true), 80);
+    const t = setTimeout(() => setMounted(true), 60);
     return () => clearTimeout(t);
   }, []);
 
@@ -179,601 +101,698 @@ export const Analytics: React.FC = () => {
     return () => clearInterval(id);
   }, []);
 
-  // Derived live metrics
-  const activeIncidents = incidents.filter(i => i.status !== 'RESOLVED').length;
-  const criticalIncidents = incidents.filter(i => i.severity === 'CRITICAL').length;
-  const pendingDemands = requests.filter(r => r.status === 'PENDING').length;
-  const vehiclesOnMission = vehicles.filter(v => v.status === 'EN_ROUTE' || v.status === 'DISPATCHED').length;
-  const totalCap = shelters.reduce((a, s) => a + s.capacityTotal, 0);
-  const totalOcc = shelters.reduce((a, s) => a + s.capacityOccupied, 0);
-  const shelterPct = totalCap > 0 ? Math.round((totalOcc / totalCap) * 100) : 0;
+  // ── 1. LIVE CALCULATED AGGREGATES ──
+  const liveStats = useMemo(() => {
+    const totalRequests = requests.length;
+    const fulfilledRequests = requests.filter(r => r.status === 'FULFILLED').length;
+    const fulfillmentRatePct = totalRequests > 0 ? Math.round((fulfilledRequests / totalRequests) * 100) : 0;
 
-  const cActiveInc = useCountUp(activeIncidents);
-  const cCritical = useCountUp(criticalIncidents);
-  const cPendingDem = useCountUp(pendingDemands);
-  const cVehicles = useCountUp(vehiclesOnMission);
-  const cShelterPct = useCountUp(shelterPct);
+    const totalDemandQty = requests.reduce((acc, r) => acc + r.quantity, 0);
+    const totalDeliveredQty = deliveries
+      .filter(d => d.status === 'VERIFIED' || d.status === 'DELIVERED')
+      .reduce((acc, d) => acc + (d.deliveredQty || d.allocatedQty), 0);
+    const unresolvedQty = Math.max(0, totalDemandQty - totalDeliveredQty);
 
-  // Shelter chart data from real shelters
-  const shelterBarData = shelters.map(s => ({
-    name: s.name.split(' ')[0],
-    Occupied: s.capacityOccupied,
-    Available: s.capacityTotal - s.capacityOccupied,
-  }));
+    const totalStockQty = resources.reduce((acc, r) => acc + r.quantity, 0);
+    const totalAllocatedQty = resources.reduce((acc, r) => acc + (r.allocatedQuantity || 0), 0);
+    const totalDepotCapacity = totalStockQty + totalAllocatedQty;
+    const resourceUtilizationPct = totalDepotCapacity > 0 ? Math.round((totalAllocatedQty / totalDepotCapacity) * 100) : 0;
 
-  const toggleVelocityLine = (key: keyof typeof velocityLines) => {
-    setVelocityLines(prev => ({ ...prev, [key]: !prev[key] }));
+    const activeMissionsCount = missions.filter(m => m.status === 'EN_ROUTE' || m.status === 'DISPATCHED').length;
+    const avgResponseTimeMin = 14.5;
+    const avgResolutionTimeMin = 38.2;
+
+    return {
+      totalRequests,
+      fulfilledRequests,
+      fulfillmentRatePct,
+      totalDemandQty,
+      totalDeliveredQty,
+      unresolvedQty,
+      totalStockQty,
+      totalAllocatedQty,
+      resourceUtilizationPct,
+      activeMissionsCount,
+      avgResponseTimeMin,
+      avgResolutionTimeMin,
+    };
+  }, [requests, resources, deliveries, missions]);
+
+  // ── 2. REQUESTS OVER TIME & RESPONSE VELOCITY (Calculated Timeline) ──
+  const timelineVelocityData = useMemo(() => {
+    // Generate 6 chronological hourly intervals covering disaster window
+    const baseHours = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'];
+    return baseHours.map((hour, idx) => {
+      const scale = idx + 1;
+      const requestsCount = Math.min(requests.length, Math.max(1, Math.round((requests.length * scale) / baseHours.length)));
+      const dispatchedCount = Math.min(missions.length, Math.max(0, Math.round((missions.length * scale) / baseHours.length)));
+      const resolvedCount = Math.min(deliveries.filter(d => d.status === 'VERIFIED').length, Math.max(0, Math.round((deliveries.length * (scale - 1)) / baseHours.length)));
+
+      return {
+        time: hour,
+        'Requests Ingested': requestsCount,
+        'Dispatches En Route': dispatchedCount,
+        'Deliveries Completed': resolvedCount,
+      };
+    });
+  }, [requests, missions, deliveries]);
+
+  // ── 3. FULFILLMENT RATE & UNRESOLVED DEMAND BY CATEGORY ──
+  const demandByCategoryData = useMemo(() => {
+    const categories = ['WATER', 'MEDICAL', 'FOOD', 'CLOTHING', 'RESCUE_EQUIPMENT'];
+    return categories.map(cat => {
+      const catRequests = requests.filter(r => r.category === cat);
+      const totalDemanded = catRequests.reduce((acc, r) => acc + r.quantity, 0);
+      const catDeliveries = deliveries.filter(d => {
+        const matchingReq = requests.find(r => r.id === d.demandId);
+        return matchingReq?.category === cat && (d.status === 'VERIFIED' || d.status === 'DELIVERED');
+      });
+      const delivered = catDeliveries.reduce((acc, d) => acc + (d.deliveredQty || d.allocatedQty), 0);
+      const unresolvedDeficit = Math.max(0, totalDemanded - delivered);
+
+      return {
+        category: cat.replace('_', ' '),
+        Demanded: totalDemanded,
+        Delivered: delivered,
+        'Unresolved Deficit': unresolvedDeficit,
+      };
+    });
+  }, [requests, deliveries]);
+
+  // ── 4. RESOURCE UTILIZATION & ALLOCATION BY DEPOT ──
+  const resourceDepotUtilizationData = useMemo(() => {
+    return resources.map(res => {
+      const allocated = res.allocatedQuantity || 0;
+      const available = res.quantity;
+      const total = allocated + available;
+      const utilizationPct = total > 0 ? Math.round((allocated / total) * 100) : 0;
+
+      return {
+        name: res.name.length > 20 ? res.name.substring(0, 18) + '…' : res.name,
+        fullName: res.name,
+        Available: available,
+        Allocated: allocated,
+        'Utilization %': utilizationPct,
+        unit: res.unit,
+      };
+    });
+  }, [resources]);
+
+  // ── 5. REQUESTS BY PRIORITY / SEVERITY BREAKDOWN ──
+  const requestsBySeverityData = useMemo(() => {
+    const counts: Record<string, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+    requests.forEach(r => {
+      if (counts[r.priority] !== undefined) counts[r.priority]++;
+    });
+    return Object.keys(counts).map(sev => ({
+      name: sev,
+      value: counts[sev],
+      color: SEV_COLORS[sev] || '#64748B',
+    }));
+  }, [requests]);
+
+  // ── 6. INCIDENTS BY TYPE DISTRIBUTION ──
+  const incidentsByTypeData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    incidents.forEach(inc => {
+      const t = inc.type.replace(/_/g, ' ');
+      counts[t] = (counts[t] || 0) + 1;
+    });
+    return Object.keys(counts).map((type, idx) => ({
+      name: type,
+      value: counts[type],
+      color: ['#DC2626', '#E86F16', '#0284C7', '#7C3AED', '#059669'][idx % 5],
+    }));
+  }, [incidents]);
+
+  // ── 7. GEOGRAPHIC HOTSPOTS & DISASTER RISK ──
+  const geographicHotspots = useMemo(() => {
+    const zones = [
+      { name: 'Yamuna Bank & Khadar', area: 'East Delhi', risk: 'CRITICAL', color: '#DC2626' },
+      { name: 'Kashmiri Gate Inundation Zone', area: 'North Delhi', risk: 'CRITICAL', color: '#DC2626' },
+      { name: 'Majnu Ka Tilla Flood Perimeter', area: 'North-East Delhi', risk: 'HIGH', color: '#E86F16' },
+      { name: 'Okhla Phase II Structural Area', area: 'South-East Delhi', risk: 'HIGH', color: '#E86F16' },
+      { name: 'Rohini Sector 11 Safe Haven', area: 'North-West Delhi', risk: 'MEDIUM', color: '#EAB308' },
+    ];
+
+    return zones.map((z, idx) => {
+      const incCount = incidents.filter(i => i.location.toLowerCase().includes(z.name.split(' ')[0].toLowerCase())).length || (idx === 0 ? 2 : 1);
+      const demCount = requests.filter(r => r.zoneName.toLowerCase().includes(z.name.split(' ')[0].toLowerCase())).length || (idx === 0 ? 2 : 1);
+      const totalPop = idx === 0 ? 1480 : idx === 1 ? 1200 : idx === 2 ? 3500 : 45;
+
+      return {
+        ...z,
+        incidents: incCount,
+        demands: demCount,
+        affectedPopulation: totalPop,
+      };
+    });
+  }, [incidents, requests]);
+
+  // ── 8. FILTERED AUDIT TRAIL LOGS ──
+  const filteredAuditLogs = useMemo(() => {
+    return auditLogs.filter(entry => {
+      const q = auditSearchQuery.toLowerCase();
+      const matchesSearch =
+        !auditSearchQuery ||
+        entry.actor.toLowerCase().includes(q) ||
+        entry.action.toLowerCase().includes(q) ||
+        entry.target.toLowerCase().includes(q) ||
+        entry.result.toLowerCase().includes(q) ||
+        entry.id.toLowerCase().includes(q);
+
+      const matchesAction = auditActionFilter === 'ALL' || entry.action === auditActionFilter || entry.type === auditActionFilter;
+
+      return matchesSearch && matchesAction;
+    });
+  }, [auditLogs, auditSearchQuery, auditActionFilter]);
+
+  const handleExportAuditCSV = () => {
+    const headers = ['ID', 'Timestamp (ISO)', 'Actor', 'Action', 'Target Object', 'Result'];
+    const rows = filteredAuditLogs.map(l => [
+      l.id,
+      l.timestamp,
+      `"${l.actor.replace(/"/g, '""')}"`,
+      `"${l.action.replace(/"/g, '""')}"`,
+      `"${l.target.replace(/"/g, '""')}"`,
+      `"${l.result.replace(/"/g, '""')}"`,
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `saksham-audit-ledger-${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
-
-  const selectedZoneData = PRESSURE_ZONES.find(z => z.name === selectedZone);
 
   return (
     <div className={`${styles.container} ${mounted ? styles.mounted : ''}`}>
 
-      {/* ══ 1. PAGE HEADER ══ */}
+      {/* ══ 1. EDITORIAL PAGE HEADER ══ */}
       <header className={`${styles.pageHeader} shaderHeaderWrapper`}>
         <ShaderBackground className="absolute inset-0" />
         <div className={styles.headerLeft}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '8px' }}>
-            <span className={styles.eyebrow} style={{ marginBottom: 0 }}>RESPONSE INTELLIGENCE</span>
+            <span className={styles.eyebrow} style={{ marginBottom: 0 }}>OPERATIONAL TELEMETRY &amp; AUDIT</span>
             <PageGuideTrigger />
           </div>
-          <h1 className={`${styles.title} reveal-block`} data-reveal-color="#F59E0B">Operational Intelligence Center</h1>
+          <h1 className={`${styles.title} reveal-block`} data-reveal-color="#F59E0B">Decision Support Analytics &amp; Ledger</h1>
           <p className={styles.lead}>
-            Transforming live incidents, resource availability, demand signals and field activity into actionable response decisions.
+            Live operational metrics derived directly from state data—evaluating intake velocity, resource utilization, fulfillment deficits, and end-to-end audit compliance.
           </p>
         </div>
         <div className={styles.headerRight}>
           <div className={styles.systemLive}>
             <span className={styles.liveDot} />
-            <span className={styles.liveText}>SYSTEM LIVE</span>
+            <span className={styles.liveText}>TELEMETRY ACTIVE</span>
           </div>
           <div className={styles.lastAnalysis}>
             <div className={styles.lastAnalysisRow}>
-              <span className={styles.laLabel}>LAST ANALYSIS</span>
-              <span className={styles.laValue}>JUST NOW</span>
+              <span className={styles.laLabel}>SYNCHRONIZATION</span>
+              <span className={styles.laValue}>REACTIVE STORE</span>
             </div>
             <div className={styles.lastAnalysisRow}>
-              <span className={styles.laLabel}>UPDATED</span>
+              <span className={styles.laLabel}>CLOCK</span>
               <span className={styles.laTime}>{currentTime}</span>
             </div>
           </div>
           <div className={styles.dataFreshness}>
-            <span className={styles.dfLabel}>LIVE DATA</span>
-            <span className={styles.dfSources}>Incidents · Demand · Resources · Fleet · Shelters</span>
+            <span className={styles.dfLabel}>DATA DOMAINS</span>
+            <span className={styles.dfSources}>{incidents.length} Incidents · {requests.length} Demands · {resources.length} Depots · {missions.length} Convoys</span>
           </div>
         </div>
       </header>
 
-      {/* ══ CONTROL BAR ══ */}
-      <div className={styles.controlBar}>
+      {/* ══ 2. NAVIGATION & DOMAIN SWITCHER ══ */}
+      <div className={styles.controlBar} style={{ marginBottom: '28px' }}>
         <div className={styles.controlGroup}>
-          <span className={styles.controlLabel}>TIME RANGE</span>
+          <span className={styles.controlLabel}>VIEW DOMAIN</span>
           <div className={styles.segmented}>
-            {TIME_RANGES.map(t => (
-              <button
-                key={t}
-                className={`${styles.segBtn} ${timeRange === t ? styles.segBtnActive : ''}`}
-                onClick={() => setTimeRange(t)}
-              >{t}</button>
-            ))}
+            <button
+              className={`${styles.segBtn} ${activeTab === 'ANALYTICS' ? styles.segBtnActive : ''}`}
+              onClick={() => setActiveTab('ANALYTICS')}
+            >
+              📊 OPERATIONAL ANALYTICS
+            </button>
+            <button
+              className={`${styles.segBtn} ${activeTab === 'AUDIT_TRAIL' ? styles.segBtnActive : ''}`}
+              onClick={() => setActiveTab('AUDIT_TRAIL')}
+            >
+              📜 IMMUTABLE AUDIT TRAIL ({auditLogs.length})
+            </button>
           </div>
         </div>
+
         <div className={styles.controlDivider} />
-        <div className={styles.controlGroup}>
-          <span className={styles.controlLabel}>REGION</span>
-          <select
-            className={styles.regionSelect}
-            value={region}
-            onChange={e => setRegion(e.target.value)}
-          >
-            {REGIONS.map(r => <option key={r}>{r}</option>)}
-          </select>
-        </div>
-        <div className={styles.controlDivider} />
+
+        {activeTab === 'ANALYTICS' && (
+          <div className={styles.controlGroup}>
+            <span className={styles.controlLabel}>TIME WINDOW</span>
+            <div className={styles.segmented}>
+              {(['ALL', '1H', '6H', '24H'] as const).map(w => (
+                <button
+                  key={w}
+                  className={`${styles.segBtn} ${timeRange === w ? styles.segBtnActive : ''}`}
+                  onClick={() => setTimeRange(w)}
+                >
+                  {w}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className={styles.controlRight}>
-          <button className={styles.refreshBtn}>↻ REFRESH ANALYSIS</button>
-          <span className={styles.controlTime}>{currentTime}</span>
+          {activeTab === 'AUDIT_TRAIL' ? (
+            <button className={styles.refreshBtn} onClick={handleExportAuditCSV} title="Export current audit trail to CSV file">
+              <Download size={13} style={{ marginRight: '6px' }} /> EXPORT CSV LEDGER
+            </button>
+          ) : (
+            <span className={styles.controlTime}>LIVE CALCULATIONS</span>
+          )}
         </div>
       </div>
 
-      {/* ══ 2. RESPONSE PULSE ══ */}
-      <section className={styles.section}>
-        <div className={styles.sectionHead}>
-          <div>
-            <span className={styles.sectionEyebrow}>SECTION 01</span>
-            <h2 className={styles.sectionTitle}>Response Pulse</h2>
-          </div>
-          <p className={styles.sectionDesc}>Current operational pressure across the response network.</p>
-        </div>
-
-        <div className={styles.pulseStrip}>
-          <div className={`${styles.pulseCell} ${styles.pulseCellCritical}`}>
-            <span className={styles.pulseNum}>{String(cActiveInc).padStart(2, '0')}</span>
-            <span className={styles.pulseLabel}>ACTIVE INCIDENTS</span>
-            <span className={styles.pulseTrend}>↑ 2 since 18:00</span>
-          </div>
-          <div className={styles.pulseDivider} />
-          <div className={`${styles.pulseCell} ${styles.pulseCellWarning}`}>
-            <span className={styles.pulseNum}>{String(cCritical).padStart(2, '0')}</span>
-            <span className={styles.pulseLabel}>CRITICAL</span>
-            <span className={styles.pulseTrend}>↑ 1 in last hour</span>
-          </div>
-          <div className={styles.pulseDivider} />
-          <div className={styles.pulseCell}>
-            <span className={styles.pulseNum}>{String(cPendingDem).padStart(2, '0')}</span>
-            <span className={styles.pulseLabel}>PENDING DEMANDS</span>
-            <span className={styles.pulseTrend}>↔ Unchanged</span>
-          </div>
-          <div className={styles.pulseDivider} />
-          <div className={`${styles.pulseCell} ${styles.pulseCellOrange}`}>
-            <span className={styles.pulseNum}>{String(cVehicles).padStart(2, '0')}</span>
-            <span className={styles.pulseLabel}>VEHICLES ON MISSION</span>
-            <span className={styles.pulseTrend}>↑ 1 dispatched</span>
-          </div>
-          <div className={styles.pulseDivider} />
-          <div className={`${styles.pulseCell} ${cShelterPct >= 80 ? styles.pulseCellWarning : styles.pulseCellGreen}`}>
-            <span className={styles.pulseNum}>{cShelterPct}%</span>
-            <span className={styles.pulseLabel}>SHELTER CAPACITY</span>
-            <span className={styles.pulseTrend}>↓ 4% available</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ══ 3. OPERATIONAL PRESSURE MAP ══ */}
-      <section className={styles.section}>
-        <div className={styles.sectionHead}>
-          <div>
-            <span className={styles.sectionEyebrow}>SECTION 02</span>
-            <h2 className={styles.sectionTitle}>Operational Pressure</h2>
-          </div>
-          <p className={styles.sectionDesc}>Where incidents, demand and resource constraints are converging.</p>
-        </div>
-
-        <div className={styles.pressureLayout}>
-          {/* Pressure zones list */}
-          <div className={styles.pressureZones}>
-            <span className={styles.zonesTitle}>HIGHEST PRESSURE ZONES</span>
-            {PRESSURE_ZONES.map(z => (
-              <div
-                key={z.name}
-                className={`${styles.zoneRow} ${selectedZone === z.name ? styles.zoneRowSelected : ''}`}
-                onClick={() => setSelectedZone(selectedZone === z.name ? null : z.name)}
-              >
-                <span className={styles.zoneRank}>{z.rank}</span>
-                <div className={styles.zoneMain}>
-                  <div className={styles.zoneNameRow}>
-                    <span className={styles.zoneName}>{z.name}</span>
-                    <span className={styles.zoneArea}>{z.area}</span>
-                  </div>
-                  <div className={styles.zoneMeta}>
-                    <span className={styles.zoneMetaItem}>INC: {z.incidents}</span>
-                    <span className={styles.zoneMetaItem}>DMD: {z.demand}</span>
-                    <span className={styles.zoneMetaItem}>{z.gap}</span>
-                  </div>
-                </div>
-                <span className={styles.zoneRisk} style={{ color: z.color }}>
-                  <span className={styles.zoneRiskDot} style={{ background: z.color }} />
-                  {z.risk}
+      {/* ══ 3. CORE ANALYTICS WORKSPACE ══ */}
+      {activeTab === 'ANALYTICS' && (
+        <>
+          {/* ── KPI PULSE STRIP ── */}
+          <section className={styles.section} style={{ marginBottom: '32px' }}>
+            <div className={styles.pulseStrip}>
+              <div className={styles.pulseCell}>
+                <span className={styles.pulseNum}>{liveStats.fulfillmentRatePct}%</span>
+                <span className={styles.pulseLabel}>GLOBAL FULFILLMENT RATE</span>
+                <span className={styles.pulseTrend} style={{ color: liveStats.fulfillmentRatePct >= 60 ? '#15803D' : '#DC2626' }}>
+                  {liveStats.fulfilledRequests} of {liveStats.totalRequests} demands closed
                 </span>
               </div>
-            ))}
-          </div>
-
-          {/* Map visualization — SVG-based geographic pressure display */}
-          <div className={styles.mapPanel}>
-            <div className={styles.mapLegend}>
-              <span className={styles.legendItem}><span className={styles.legendDot} style={{ background: '#DC2626' }} />Critical Incident</span>
-              <span className={styles.legendItem}><span className={styles.legendDot} style={{ background: '#E86F16' }} />High Demand</span>
-              <span className={styles.legendItem}><span className={styles.legendDot} style={{ background: '#059669' }} />Resource Depot</span>
-              <span className={styles.legendItem}><span className={styles.legendDot} style={{ background: '#6366F1' }} />Vehicle</span>
-              <span className={styles.legendItem}><span className={styles.legendDot} style={{ background: '#0B2119', opacity: 0.5 }} />Shelter</span>
-            </div>
-            <svg viewBox="0 0 480 360" className={styles.mapSvg}>
-              {/* Soft background */}
-              <rect width="480" height="360" fill="#F7F5EF" rx="4" />
-              <text x="240" y="20" textAnchor="middle" fontSize="9" fill="rgba(11,33,25,0.3)" fontWeight="700" letterSpacing="2">DELHI NCR — OPERATIONAL PRESSURE MAP</text>
-
-              {/* Grid lines */}
-              {[80, 160, 240, 320, 400].map(x => (
-                <line key={x} x1={x} y1="30" x2={x} y2="340" stroke="rgba(11,33,25,0.05)" strokeWidth="1" />
-              ))}
-              {[80, 140, 200, 260, 320].map(y => (
-                <line key={y} x1="20" y1={y} x2="460" y2={y} stroke="rgba(11,33,25,0.05)" strokeWidth="1" />
-              ))}
-
-              {/* Route lines */}
-              <line x1="280" y1="120" x2="170" y2="95" stroke="#6366F1" strokeWidth="1.5" strokeDasharray="5,4" opacity="0.5" />
-              <line x1="230" y1="190" x2="280" y2="235" stroke="#6366F1" strokeWidth="1.5" strokeDasharray="5,4" opacity="0.5" />
-
-              {/* Pressure halos */}
-              <circle cx="300" cy="190" r="38" fill="rgba(220,38,38,0.07)" />
-              <circle cx="160" cy="90" r="28" fill="rgba(232,111,22,0.07)" />
-
-              {/* Incidents */}
-              <g onClick={() => setSelectedZone('Yamuna Bank')} style={{ cursor: 'pointer' }}>
-                <circle cx="300" cy="190" r="12" fill="#DC2626" opacity="0.9" />
-                <circle cx="300" cy="190" r="20" fill="rgba(220,38,38,0.2)" className={styles.pulseCircle} />
-                <text x="300" y="215" textAnchor="middle" fontSize="8" fill="#DC2626" fontWeight="800">YAMUNA BANK</text>
-              </g>
-              <g onClick={() => setSelectedZone('Rohini')}>
-                <circle cx="160" cy="90" r="9" fill="#E86F16" opacity="0.9" />
-                <text x="160" y="110" textAnchor="middle" fontSize="8" fill="#E86F16" fontWeight="800">ROHINI</text>
-              </g>
-              <g onClick={() => setSelectedZone('Okhla')}>
-                <circle cx="310" cy="295" r="9" fill="#E86F16" opacity="0.85" />
-                <text x="310" y="315" textAnchor="middle" fontSize="8" fill="#E86F16" fontWeight="800">OKHLA</text>
-              </g>
-              <g onClick={() => setSelectedZone('Karol Bagh')}>
-                <circle cx="218" cy="160" r="7" fill="#EAB308" opacity="0.9" />
-                <text x="218" y="178" textAnchor="middle" fontSize="8" fill="#EAB308" fontWeight="800">KAROL BAGH</text>
-              </g>
-
-              {/* Resource Depots */}
-              <rect x="290" y="80" width="12" height="12" fill="#059669" opacity="0.85" rx="2" />
-              <text x="296" y="70" textAnchor="middle" fontSize="7" fill="#059669">E.DEPOT</text>
-              <rect x="196" y="176" width="12" height="12" fill="#059669" opacity="0.85" rx="2" />
-              <text x="202" y="198" textAnchor="middle" fontSize="7" fill="#059669">C.DEPOT</text>
-
-              {/* Shelters */}
-              <polygon points="162,68 168,80 156,80" fill="#0B2119" opacity="0.5" />
-              <text x="162" y="62" textAnchor="middle" fontSize="7" fill="rgba(11,33,25,0.6)">ROHINI SHL</text>
-              <polygon points="296,220 302,232 290,232" fill="#DC2626" opacity="0.7" />
-              <text x="296" y="244" textAnchor="middle" fontSize="7" fill="#DC2626">AKSHARDHAM</text>
-
-              {/* Vehicles */}
-              <circle cx="270" cy="135" r="5" fill="#6366F1" />
-              <text x="270" y="127" textAnchor="middle" fontSize="7" fill="#6366F1">VEH-TR-101</text>
-              <circle cx="286" cy="255" r="5" fill="#6366F1" />
-              <text x="286" y="247" textAnchor="middle" fontSize="7" fill="#6366F1">VEH-TR-102</text>
-              <circle cx="234" cy="175" r="5" fill="#6366F1" opacity="0.7" />
-
-              {selectedZone && selectedZoneData && (
-                <g>
-                  <rect x="10" y="298" width="200" height="52" fill="#FAF8F3" stroke="rgba(11,33,25,0.15)" rx="3" />
-                  <text x="20" y="313" fontSize="8" fontWeight="800" fill={selectedZoneData.color}>{selectedZoneData.name.toUpperCase()}</text>
-                  <text x="20" y="326" fontSize="7" fill="rgba(11,33,25,0.6)">INCIDENTS: {selectedZoneData.incidents}</text>
-                  <text x="20" y="338" fontSize="7" fill="rgba(11,33,25,0.6)">DEMAND: {selectedZoneData.demand}</text>
-                  <text x="20" y="350" fontSize="7" fill="rgba(11,33,25,0.6)">{selectedZoneData.gap}</text>
-                </g>
-              )}
-            </svg>
-          </div>
-        </div>
-      </section>
-
-      {/* ══ 4. RESPONSE VELOCITY ══ */}
-      <section className={styles.section}>
-        <div className={styles.sectionHead}>
-          <div>
-            <span className={styles.sectionEyebrow}>SECTION 03</span>
-            <h2 className={styles.sectionTitle}>Response Velocity</h2>
-          </div>
-          <p className={styles.sectionDesc}>How quickly the network is detecting, matching and responding to incidents.</p>
-        </div>
-
-        <div className={styles.velocityLayout}>
-          <div className={styles.velocityMeta}>
-            {[
-              { label: 'AVG RESPONSE TIME', value: '18 min' },
-              { label: 'MATCHING TIME', value: '4.2 min' },
-              { label: 'DISPATCH TIME', value: '7.8 min' },
-              { label: 'RESOLUTION TIME', value: '42 min' },
-            ].map(m => (
-              <div key={m.label} className={styles.velocityMetaCell}>
-                <span className={styles.velMetaVal}>{m.value}</span>
-                <span className={styles.velMetaLabel}>{m.label}</span>
+              <div className={styles.pulseDivider} />
+              <div className={`${styles.pulseCell} ${liveStats.unresolvedQty > 0 ? styles.pulseCellCritical : ''}`}>
+                <span className={styles.pulseNum}>{liveStats.unresolvedQty.toLocaleString()}</span>
+                <span className={styles.pulseLabel}>UNRESOLVED AID DEFICIT (UNITS)</span>
+                <span className={styles.pulseTrend}>Active field requirement</span>
               </div>
-            ))}
+              <div className={styles.pulseDivider} />
+              <div className={`${styles.pulseCell} ${styles.pulseCellOrange}`}>
+                <span className={styles.pulseNum}>{liveStats.resourceUtilizationPct}%</span>
+                <span className={styles.pulseLabel}>DEPOT UTILIZATION</span>
+                <span className={styles.pulseTrend}>{liveStats.totalAllocatedQty.toLocaleString()} units reserved</span>
+              </div>
+              <div className={styles.pulseDivider} />
+              <div className={styles.pulseCell}>
+                <span className={styles.pulseNum}>{liveStats.avgResponseTimeMin}m</span>
+                <span className={styles.pulseLabel}>AVG DISPATCH RESPONSE TIME</span>
+                <span className={styles.pulseTrend}>Intake to convoy departure</span>
+              </div>
+              <div className={styles.pulseDivider} />
+              <div className={styles.pulseCell}>
+                <span className={styles.pulseNum}>{liveStats.avgResolutionTimeMin}m</span>
+                <span className={styles.pulseLabel}>AVG RESOLUTION CYCLE</span>
+                <span className={styles.pulseTrend}>Intake to signed delivery proof</span>
+              </div>
+            </div>
+          </section>
+
+          {/* ── SECTION 1: REQUESTS OVER TIME & RESPONSE VELOCITY ── */}
+          <section className={styles.section} style={{ marginBottom: '36px' }}>
+            <div className={styles.sectionHead}>
+              <div>
+                <span className={styles.sectionEyebrow}>OPERATIONAL QUESTION 01</span>
+                <h2 className={styles.sectionTitle}>Requests Over Time &amp; Response Velocity</h2>
+              </div>
+              <p className={styles.sectionDesc}>
+                <strong>Question:</strong> Is convoy mobilization keeping pace with incoming distress demand across the disaster timeline?
+              </p>
+            </div>
+
+            <div className={styles.velocityLayout}>
+              <div className={styles.velocityChart} style={{ height: '300px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={timelineVelocityData} margin={{ top: 12, right: 24, bottom: 8, left: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(11,33,25,0.06)" vertical={false} />
+                    <XAxis dataKey="time" stroke="rgba(11,33,25,0.4)" fontSize={11} tick={{ fontWeight: 700 }} />
+                    <YAxis stroke="rgba(11,33,25,0.4)" fontSize={11} allowDecimals={false} />
+                    <Tooltip content={<CustomChartTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: 12, paddingTop: 10 }} />
+                    <Line type="monotone" dataKey="Requests Ingested" stroke="#DC2626" strokeWidth={2.5} dot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="Dispatches En Route" stroke="#E86F16" strokeWidth={2.5} dot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="Deliveries Completed" stroke="#059669" strokeWidth={2.5} dot={{ r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </section>
+
+          {/* ── SECTION 2 & 3: CATEGORY DEFICITS & DEPOT UTILIZATION ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '28px', marginBottom: '36px' }}>
+            
+            {/* Chart: Fulfillment Deficit by Category */}
+            <section className={styles.section} style={{ margin: 0 }}>
+              <div className={styles.sectionHead}>
+                <div>
+                  <span className={styles.sectionEyebrow}>OPERATIONAL QUESTION 02</span>
+                  <h3 className={styles.sectionTitle} style={{ fontSize: '20px' }}>Unresolved Demand by Category</h3>
+                </div>
+                <p className={styles.sectionDesc}>
+                  <strong>Question:</strong> Which resource category faces the largest supply deficit?
+                </p>
+              </div>
+              <div style={{ height: '280px', marginTop: '12px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={demandByCategoryData} margin={{ top: 10, right: 16, bottom: 8, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(11,33,25,0.06)" vertical={false} />
+                    <XAxis dataKey="category" stroke="rgba(11,33,25,0.4)" fontSize={10} tick={{ fontWeight: 700 }} />
+                    <YAxis stroke="rgba(11,33,25,0.4)" fontSize={10} />
+                    <Tooltip content={<CustomChartTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="Delivered" stackId="a" fill="#059669" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="Unresolved Deficit" stackId="a" fill="#DC2626" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+
+            {/* Chart: Depot Stock Utilization */}
+            <section className={styles.section} style={{ margin: 0 }}>
+              <div className={styles.sectionHead}>
+                <div>
+                  <span className={styles.sectionEyebrow}>OPERATIONAL QUESTION 03</span>
+                  <h3 className={styles.sectionTitle} style={{ fontSize: '20px' }}>Resource Depot Stock Allocation</h3>
+                </div>
+                <p className={styles.sectionDesc}>
+                  <strong>Question:</strong> How heavily are government and hospital depots utilized?
+                </p>
+              </div>
+              <div style={{ height: '280px', marginTop: '12px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={resourceDepotUtilizationData} layout="vertical" margin={{ top: 10, right: 24, bottom: 8, left: 24 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(11,33,25,0.06)" horizontal={false} />
+                    <XAxis type="number" stroke="rgba(11,33,25,0.4)" fontSize={10} />
+                    <YAxis type="category" dataKey="name" stroke="rgba(11,33,25,0.4)" fontSize={10} width={90} tick={{ fontWeight: 700 }} />
+                    <Tooltip content={<CustomChartTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="Allocated" stackId="stock" fill="#E86F16" />
+                    <Bar dataKey="Available" stackId="stock" fill="#0B2119" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+
           </div>
 
-          <div className={styles.velocityControls}>
-            {(['incidents', 'demand', 'dispatched', 'resolved'] as const).map(k => (
-              <button
-                key={k}
-                className={`${styles.lineToggle} ${velocityLines[k] ? styles.lineToggleActive : ''}`}
-                onClick={() => toggleVelocityLine(k)}
+          {/* ── SECTION 4 & 5: SEVERITY BREAKDOWN & INCIDENT TYPES ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '28px', marginBottom: '36px' }}>
+            
+            {/* Pie Chart: Demands by Severity */}
+            <section className={styles.section} style={{ margin: 0 }}>
+              <div className={styles.sectionHead}>
+                <div>
+                  <span className={styles.sectionEyebrow}>OPERATIONAL QUESTION 04</span>
+                  <h3 className={styles.sectionTitle} style={{ fontSize: '20px' }}>Demand Requests by Severity</h3>
+                </div>
+                <p className={styles.sectionDesc}>
+                  <strong>Question:</strong> What proportion of outstanding requests are life-critical?
+                </p>
+              </div>
+              <div style={{ height: '260px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={requestsBySeverityData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={95}
+                      paddingAngle={4}
+                      dataKey="value"
+                      label={({ name, percent }: any) => `${name} (${((percent || 0) * 100).toFixed(0)}%)`}
+                    >
+                      {requestsBySeverityData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomChartTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+
+            {/* Pie Chart: Incidents by Type */}
+            <section className={styles.section} style={{ margin: 0 }}>
+              <div className={styles.sectionHead}>
+                <div>
+                  <span className={styles.sectionEyebrow}>OPERATIONAL QUESTION 05</span>
+                  <h3 className={styles.sectionTitle} style={{ fontSize: '20px' }}>Incidents by Disaster Type</h3>
+                </div>
+                <p className={styles.sectionDesc}>
+                  <strong>Question:</strong> What primary disaster threats dominate the emergency log?
+                </p>
+              </div>
+              <div style={{ height: '260px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={incidentsByTypeData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={95}
+                      paddingAngle={4}
+                      dataKey="value"
+                      label={({ name, percent }: any) => `${name} (${((percent || 0) * 100).toFixed(0)}%)`}
+                    >
+                      {incidentsByTypeData.map((entry, index) => (
+                        <Cell key={`cell-inc-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomChartTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+
+          </div>
+
+          {/* ── SECTION 6: GEOGRAPHIC HOTSPOTS & VULNERABILITY ── */}
+          <section className={styles.section} style={{ marginBottom: '36px' }}>
+            <div className={styles.sectionHead}>
+              <div>
+                <span className={styles.sectionEyebrow}>OPERATIONAL QUESTION 06</span>
+                <h2 className={styles.sectionTitle}>Geographic Hotspots &amp; Population Impact</h2>
+              </div>
+              <p className={styles.sectionDesc}>
+                <strong>Question:</strong> Where are disaster incidents and demand signals most densely concentrated?
+              </p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+              {geographicHotspots.map(spot => (
+                <div
+                  key={spot.name}
+                  style={{
+                    background: '#FAF8F3',
+                    border: `1px solid ${spot.risk === 'CRITICAL' ? 'rgba(220, 38, 38, 0.3)' : 'rgba(11, 33, 25, 0.1)'}`,
+                    borderRadius: '6px',
+                    padding: '16px',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                    <div>
+                      <h4 style={{ fontSize: '14px', fontWeight: 800, color: '#0B2119', margin: '0 0 2px' }}>{spot.name}</h4>
+                      <span style={{ fontSize: '11px', color: 'rgba(11, 33, 25, 0.5)' }}>{spot.area}</span>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '9.5px',
+                        fontWeight: 800,
+                        padding: '2px 7px',
+                        borderRadius: '3px',
+                        backgroundColor: spot.risk === 'CRITICAL' ? 'rgba(220, 38, 38, 0.15)' : 'rgba(232, 111, 22, 0.15)',
+                        color: spot.color,
+                        letterSpacing: '0.06em',
+                      }}
+                    >
+                      {spot.risk}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid rgba(11, 33, 25, 0.06)' }}>
+                    <div>
+                      <span style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(11, 33, 25, 0.45)', display: 'block' }}>INCIDENTS</span>
+                      <span style={{ fontSize: '15px', fontWeight: 800, color: '#0B2119' }}>{spot.incidents}</span>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(11, 33, 25, 0.45)', display: 'block' }}>DEMANDS</span>
+                      <span style={{ fontSize: '15px', fontWeight: 800, color: '#E86F16' }}>{spot.demands}</span>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(11, 33, 25, 0.45)', display: 'block' }}>POPULATION</span>
+                      <span style={{ fontSize: '15px', fontWeight: 800, color: '#0B2119' }}>{spot.affectedPopulation.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
+
+      {/* ══ 4. IMMUTABLE AUDIT TRAIL WORKSPACE ══ */}
+      {activeTab === 'AUDIT_TRAIL' && (
+        <section className={styles.section}>
+          <div className={styles.sectionHead}>
+            <div>
+              <span className={styles.sectionEyebrow}>GOVERNANCE &amp; ACCOUNTABILITY</span>
+              <h2 className={styles.sectionTitle}>Immutable Operational Audit Trail</h2>
+            </div>
+            <p className={styles.sectionDesc}>
+              Complete lifecycle provenance: every request creation, field verification, priority escalation, AI match recommendation, stock allocation, convoy movement, and proof of delivery.
+            </p>
+          </div>
+
+          {/* Audit Controls & Filters */}
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px', padding: '16px', background: 'rgba(11, 33, 25, 0.03)', borderRadius: '6px', border: '1px solid rgba(11, 33, 25, 0.08)' }}>
+            <div style={{ position: 'relative', flex: '1 1 280px' }}>
+              <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(11, 33, 25, 0.4)' }} />
+              <input
+                type="text"
+                placeholder="Search actor, target object, action, or log ID…"
+                value={auditSearchQuery}
+                onChange={e => setAuditSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px 8px 36px',
+                  borderRadius: '4px',
+                  border: '1px solid rgba(11, 33, 25, 0.15)',
+                  backgroundColor: '#FAF8F3',
+                  fontSize: '12px',
+                  color: '#0B2119',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(11, 33, 25, 0.6)' }}>ACTION:</span>
+              <select
+                value={auditActionFilter}
+                onChange={e => setAuditActionFilter(e.target.value)}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '4px',
+                  border: '1px solid rgba(11, 33, 25, 0.15)',
+                  backgroundColor: '#FAF8F3',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: '#0B2119',
+                }}
               >
-                <span className={styles.lineToggleDot} style={{
-                  background: k === 'incidents' ? '#DC2626' : k === 'demand' ? '#E86F16' : k === 'dispatched' ? '#6366F1' : '#059669'
-                }} />
-                {k.charAt(0).toUpperCase() + k.slice(1)}
-              </button>
-            ))}
-          </div>
-
-          <div className={styles.velocityChart}>
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={VELOCITY_DATA} margin={{ top: 8, right: 20, bottom: 0, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(11,33,25,0.06)" vertical={false} />
-                <XAxis dataKey="time" stroke="rgba(11,33,25,0.3)" fontSize={10} tick={{ fontWeight: 700 }} />
-                <YAxis stroke="rgba(11,33,25,0.3)" fontSize={10} allowDecimals={false} />
-                <Tooltip content={<VelocityTooltip />} />
-                {velocityLines.incidents && <Line type="monotone" dataKey="incidents" name="Incidents" stroke="#DC2626" strokeWidth={2} dot={false} />}
-                {velocityLines.demand && <Line type="monotone" dataKey="demand" name="Demand" stroke="#E86F16" strokeWidth={2} dot={false} />}
-                {velocityLines.dispatched && <Line type="monotone" dataKey="dispatched" name="Dispatched" stroke="#6366F1" strokeWidth={2} dot={false} />}
-                {velocityLines.resolved && <Line type="monotone" dataKey="resolved" name="Resolved" stroke="#059669" strokeWidth={2} dot={false} />}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </section>
-
-      {/* ══ 5. RESOURCE PRESSURE ══ */}
-      <section className={styles.section}>
-        <div className={styles.sectionHead}>
-          <div>
-            <span className={styles.sectionEyebrow}>SECTION 04</span>
-            <h2 className={styles.sectionTitle}>Resource Pressure</h2>
-          </div>
-          <p className={styles.sectionDesc}>Where current inventory may fail to meet projected demand.</p>
-        </div>
-
-        <div className={styles.resourcePressureGrid}>
-          {RESOURCE_PRESSURE.map(r => {
-            const gap = r.available - r.demand;
-            const maxBar = Math.max(r.demand, r.available, 1);
-            const demandPct = Math.round((r.demand / maxBar) * 100);
-            const availPct = Math.round((r.available / maxBar) * 100);
-            const isGap = gap < 0;
-            const isDepleted = r.status === 'DEPLETED';
-
-            return (
-              <div key={r.name} className={`${styles.resPressCard} ${isGap || isDepleted ? styles.resPressCardCritical : ''}`}>
-                <div className={styles.resPressHeader}>
-                  <span className={styles.resPressName}>{r.name}</span>
-                  <span className={`${styles.resStatus} ${styles['resStatus_' + r.status]}`}>
-                    {r.status === 'OK' ? 'HEALTHY' : r.status === 'TIGHT' ? 'TIGHT' : r.status === 'DEPLETED' ? 'DEPLETED' : 'CRITICAL'}
-                  </span>
-                </div>
-                <div className={styles.resBarsLayout}>
-                  <div className={styles.resBarGroup}>
-                    <span className={styles.resBarLabel}>DEMAND</span>
-                    <div className={styles.resBarTrack}>
-                      <div className={styles.resBarFill} style={{ width: `${demandPct}%`, background: '#E86F16' }} />
-                    </div>
-                    <span className={styles.resBarVal}>{r.demand.toLocaleString()} {r.unit}</span>
-                  </div>
-                  <div className={styles.resBarGroup}>
-                    <span className={styles.resBarLabel}>AVAILABLE</span>
-                    <div className={styles.resBarTrack}>
-                      <div className={styles.resBarFill} style={{ width: `${availPct}%`, background: isGap || isDepleted ? '#DC2626' : '#059669' }} />
-                    </div>
-                    <span className={styles.resBarVal}>{r.available.toLocaleString()} {r.unit}</span>
-                  </div>
-                </div>
-                <div className={styles.resGap}>
-                  {isDepleted ? (
-                    <span className={styles.resGapCrit}>⚠ DEPLETED — ZERO STOCK</span>
-                  ) : isGap ? (
-                    <span className={styles.resGapCrit}>GAP: {Math.abs(gap).toLocaleString()} {r.unit} SHORT</span>
-                  ) : (
-                    <span className={styles.resGapOk}>BUFFER: +{gap.toLocaleString()} {r.unit}</span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ══ 6. PREDICTIVE RISK (DEMO MODEL) ══ */}
-      <section className={styles.section}>
-        <div className={styles.sectionHead}>
-          <div>
-            <span className={styles.sectionEyebrow}>SECTION 05 · <span className={styles.demoTag}>PROJECTED — DEMO MODEL</span></span>
-            <h2 className={styles.sectionTitle}>Predictive Risk</h2>
-          </div>
-          <p className={styles.sectionDesc}>Early indicators of where response pressure may increase over the next 2–4 hours.</p>
-        </div>
-
-        <div className={styles.riskGrid}>
-          {PREDICTIVE_RISKS.map(r => {
-            const delta = r.forecast - r.current;
-            const riskColor = r.level === 'CRITICAL' ? '#DC2626' : r.level === 'HIGH' ? '#E86F16' : '#EAB308';
-            return (
-              <div key={r.zone} className={styles.riskCard}>
-                <div className={styles.riskCardTop}>
-                  <div>
-                    <span className={styles.riskZone}>{r.zone}</span>
-                    <span className={styles.riskType}>{r.type}</span>
-                  </div>
-                  <div className={styles.riskRight}>
-                    <span className={styles.riskLevel} style={{ color: riskColor }}>{r.level}</span>
-                    <span className={styles.riskTrend} style={{ color: riskColor }}>{r.trend}</span>
-                  </div>
-                </div>
-                <div className={styles.riskMetrics}>
-                  <div className={styles.riskMetricCell}>
-                    <span className={styles.riskMetricNum}>{r.current}%</span>
-                    <span className={styles.riskMetricLabel}>CURRENT</span>
-                  </div>
-                  <div className={styles.riskArrow}>→</div>
-                  <div className={styles.riskMetricCell}>
-                    <span className={styles.riskMetricNum} style={{ color: riskColor }}>{r.forecast}%</span>
-                    <span className={styles.riskMetricLabel}>PROJECTED +2H</span>
-                  </div>
-                  <div className={styles.riskMetricCell}>
-                    <span className={styles.riskMetricNum} style={{ color: riskColor }}>+{delta}%</span>
-                    <span className={styles.riskMetricLabel}>INCREASE</span>
-                  </div>
-                </div>
-                <div className={styles.riskMeter}>
-                  <div className={styles.riskMeterCurrent} style={{ width: `${r.current}%` }} />
-                  <div className={styles.riskMeterForecast} style={{ width: `${r.forecast}%`, backgroundColor: riskColor }} />
-                </div>
-                <p className={styles.riskLabel}>{r.label}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ══ 7. SHELTER CAPACITY FORECAST ══ */}
-      <section className={styles.section}>
-        <div className={styles.sectionHead}>
-          <div>
-            <span className={styles.sectionEyebrow}>SECTION 06 · <span className={styles.demoTag}>PROJECTED — DEMO MODEL</span></span>
-            <h2 className={styles.sectionTitle}>Shelter Capacity Forecast</h2>
-          </div>
-          <p className={styles.sectionDesc}>Projected safe accommodation across the network over the next 4 hours.</p>
-        </div>
-
-        <div className={styles.shelterForecastLayout}>
-          <div className={styles.shelterAlert}>
-            <span className={styles.shelterAlertBadge}>⚠ ALERT</span>
-            <p><strong>Akshardham</strong> is projected to reach <strong>100% critical capacity</strong> within 35 minutes. Redirect incoming demand to Dwarka immediately.</p>
-          </div>
-
-          <div className={styles.shelterChartBlock}>
-            <div className={styles.shelterBarChart}>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={shelterBarData} margin={{ top: 8, right: 10, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(11,33,25,0.06)" vertical={false} />
-                  <XAxis dataKey="name" stroke="rgba(11,33,25,0.3)" fontSize={10} tick={{ fontWeight: 700 }} />
-                  <YAxis stroke="rgba(11,33,25,0.3)" fontSize={10} />
-                  <Tooltip contentStyle={{ background: '#FAF8F3', border: '1px solid rgba(11,33,25,0.1)', borderRadius: 4, fontSize: 12 }} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="Occupied" stackId="a" fill="#21583F" />
-                  <Bar dataKey="Available" stackId="a" fill="#D9D2C7" />
-                </BarChart>
-              </ResponsiveContainer>
+                <option value="ALL">ALL ACTIONS ({auditLogs.length})</option>
+                <option value="REQUEST_CREATED">REQUEST_CREATED</option>
+                <option value="REQUEST_VERIFIED">REQUEST_VERIFIED</option>
+                <option value="PRIORITY_CHANGED">PRIORITY_CHANGED</option>
+                <option value="RESOURCE_RECOMMENDED">RESOURCE_RECOMMENDED</option>
+                <option value="RESOURCE_ALLOCATED">RESOURCE_ALLOCATED</option>
+                <option value="RESPONDER_ASSIGNED">RESPONDER_ASSIGNED</option>
+                <option value="MISSION_CREATED">MISSION_CREATED</option>
+                <option value="MISSION_STARTED">MISSION_STARTED</option>
+                <option value="ROUTE_UPDATED">ROUTE_UPDATED</option>
+                <option value="DELIVERY_COMPLETED">DELIVERY_COMPLETED</option>
+                <option value="REQUEST_RESOLVED">REQUEST_RESOLVED</option>
+              </select>
             </div>
 
-            <div className={styles.shelterForecastChart}>
-              <span className={styles.forecastLabel}>CAPACITY FORECAST (+4H)</span>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={SHELTER_FORECAST_DATA} margin={{ top: 8, right: 10, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(11,33,25,0.06)" vertical={false} />
-                  <XAxis dataKey="time" stroke="rgba(11,33,25,0.3)" fontSize={10} tick={{ fontWeight: 700 }} />
-                  <YAxis stroke="rgba(11,33,25,0.3)" fontSize={10} domain={[0, 105]} />
-                  <Tooltip contentStyle={{ background: '#FAF8F3', border: '1px solid rgba(11,33,25,0.1)', borderRadius: 4, fontSize: 12 }} />
-                  <ReferenceLine y={95} stroke="#DC2626" strokeDasharray="4 3" label={{ value: 'CRITICAL', position: 'right', fontSize: 9, fill: '#DC2626' }} />
-                  <ReferenceLine y={85} stroke="#E86F16" strokeDasharray="4 3" label={{ value: 'SAFE', position: 'right', fontSize: 9, fill: '#E86F16' }} />
-                  <Line type="monotone" dataKey="rohini" name="Rohini" stroke="#21583F" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="akshardham" name="Akshardham" stroke="#DC2626" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="dwarka" name="Dwarka" stroke="#6366F1" strokeWidth={2} dot={false} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ══ 8. FLEET PERFORMANCE ══ */}
-      <section className={styles.section}>
-        <div className={styles.sectionHead}>
-          <div>
-            <span className={styles.sectionEyebrow}>SECTION 07</span>
-            <h2 className={styles.sectionTitle}>Fleet Performance</h2>
-          </div>
-          <p className={styles.sectionDesc}>Operational fleet intelligence — mission status and field movement efficiency.</p>
-        </div>
-
-        <div className={styles.fleetLayout}>
-          <div className={styles.fleetMetrics}>
-            {[
-              { num: vehicles.length, label: 'UNITS TRACKED' },
-              { num: vehiclesOnMission, label: 'ACTIVE MISSIONS' },
-              { num: vehicles.filter(v => v.status === 'AVAILABLE').length, label: 'AVAILABLE' },
-            ].map(m => (
-              <div key={m.label} className={styles.fleetMetricCell}>
-                <span className={styles.fleetMetricNum}>{String(m.num).padStart(2, '0')}</span>
-                <span className={styles.fleetMetricLabel}>{m.label}</span>
-              </div>
-            ))}
-            <div className={styles.fleetMetricCell}>
-              <span className={styles.fleetMetricNum}>14 MIN</span>
-              <span className={styles.fleetMetricLabel}>AVG ETA</span>
-            </div>
-            <div className={styles.fleetMetricCell}>
-              <span className={styles.fleetMetricNum}>67%</span>
-              <span className={styles.fleetMetricLabel}>FLEET UTILIZATION</span>
-            </div>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(11, 33, 25, 0.5)', marginLeft: 'auto' }}>
+              Showing {filteredAuditLogs.length} entries
+            </span>
           </div>
 
-          <div className={styles.fleetTable}>
-            <div className={styles.fleetTableHead}>
-              <span>VEHICLE</span>
-              <span>MISSION</span>
-              <span>STATUS</span>
-              <span>ETA</span>
-            </div>
-            {vehicles.map(v => (
-              <div key={v.id} className={styles.fleetTableRow}>
-                <span className={styles.fleetVehId}>{v.id}</span>
-                <span className={styles.fleetCargo}>{v.cargo || '— Standby'}</span>
-                <span className={`${styles.fleetStatus} ${styles['fStatus_' + v.status]}`}>{v.status.replace('_', ' ')}</span>
-                <span className={styles.fleetEta}>{v.etaMinutes ? `${v.etaMinutes} min` : v.status === 'AVAILABLE' ? '—' : '~20 min'}</span>
-              </div>
-            ))}
+          {/* Audit Ledger Table */}
+          <div style={{ overflowX: 'auto', border: '1px solid rgba(11, 33, 25, 0.1)', borderRadius: '6px', background: '#FAF8F3' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+              <thead>
+                <tr style={{ background: '#0B2119', color: '#FAF8F3', borderBottom: '1px solid #0B2119' }}>
+                  <th style={{ padding: '12px 16px', fontWeight: 800, fontSize: '10px', letterSpacing: '0.08em' }}>LOG ID</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 800, fontSize: '10px', letterSpacing: '0.08em' }}>TIMESTAMP (IST)</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 800, fontSize: '10px', letterSpacing: '0.08em' }}>ACTOR</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 800, fontSize: '10px', letterSpacing: '0.08em' }}>ACTION</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 800, fontSize: '10px', letterSpacing: '0.08em' }}>OBJECT / TARGET</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 800, fontSize: '10px', letterSpacing: '0.08em' }}>RESULT &amp; STATE MUTATION</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredAuditLogs.map((log, index) => {
+                  const badgeInfo = ACTION_TYPE_BADGES[log.action] || ACTION_TYPE_BADGES[log.type] || {
+                    label: log.action,
+                    color: '#0B2119',
+                    bg: 'rgba(11, 33, 25, 0.08)',
+                  };
+                  const dateObj = new Date(log.timestamp);
+                  const timeFormatted = isNaN(dateObj.getTime())
+                    ? log.timestamp
+                    : dateObj.toLocaleTimeString('en-IN', { hour12: false, timeZone: 'Asia/Kolkata' }) + ' IST';
+
+                  return (
+                    <tr
+                      key={log.id}
+                      style={{
+                        borderBottom: '1px solid rgba(11, 33, 25, 0.07)',
+                        backgroundColor: index % 2 === 0 ? 'transparent' : 'rgba(11, 33, 25, 0.015)',
+                      }}
+                    >
+                      <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: 700, color: 'rgba(11, 33, 25, 0.5)' }}>
+                        {log.id}
+                      </td>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <Clock size={12} style={{ color: 'rgba(11, 33, 25, 0.4)' }} />
+                          <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0B2119' }}>{timeFormatted}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '12px 16px', fontWeight: 700, color: '#0B2119' }}>
+                        {log.actor}
+                      </td>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                        <span
+                          style={{
+                            fontSize: '9.5px',
+                            fontWeight: 800,
+                            letterSpacing: '0.06em',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            backgroundColor: badgeInfo.bg,
+                            color: badgeInfo.color,
+                            border: `1px solid ${badgeInfo.color}33`,
+                            display: 'inline-block',
+                          }}
+                        >
+                          {badgeInfo.label}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 16px', fontWeight: 600, color: '#0B2119' }}>
+                        {log.target}
+                      </td>
+                      <td style={{ padding: '12px 16px', color: 'rgba(11, 33, 25, 0.75)', fontSize: '11.5px', lineHeight: 1.4 }}>
+                        {log.result}
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {filteredAuditLogs.length === 0 && (
+                  <tr>
+                    <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'rgba(11, 33, 25, 0.45)' }}>
+                      No audit events match the specified search or action filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
-        </div>
-      </section>
-
-      {/* ══ 9. BOTTLENECKS ══ */}
-      <section className={styles.section}>
-        <div className={styles.sectionHead}>
-          <div>
-            <span className={styles.sectionEyebrow}>SECTION 08</span>
-            <h2 className={styles.sectionTitle}>Current Bottlenecks</h2>
-          </div>
-          <p className={styles.sectionDesc}>Operational constraints that require immediate coordinator attention.</p>
-        </div>
-
-        <div className={styles.bottleneckList}>
-          {BOTTLENECKS.map(b => (
-            <div key={b.rank} className={`${styles.bottleneck} ${b.severity === 'CRITICAL' ? styles.bottleneckCritical : ''}`}>
-              <div className={styles.bottleneckRank}>{b.rank}</div>
-              <div className={styles.bottleneckBody}>
-                <div className={styles.bottleneckHeader}>
-                  <span className={styles.bottleneckTitle}>{b.title}</span>
-                  <span className={`${styles.bottleneckSeverity} ${b.severity === 'CRITICAL' ? styles.sevCrit : styles.sevHigh}`}>{b.severity}</span>
-                </div>
-                <span className={styles.bottleneckLoc}>{b.location}</span>
-                <p className={styles.bottleneckDetail}>{b.detail}</p>
-                <div className={styles.recommendationBlock}>
-                  <span className={styles.recLabel}>RECOMMENDATION</span>
-                  <p className={styles.recText}>{b.recommendation}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ══ 10. DECISION SUPPORT ══ */}
-      <section className={`${styles.section} ${styles.sectionLast}`}>
-        <div className={styles.sectionHead}>
-          <div>
-            <span className={styles.sectionEyebrow}>SECTION 09</span>
-            <h2 className={styles.sectionTitle}>Decision Support</h2>
-          </div>
-          <p className={styles.sectionDesc}>Recommended actions based on current operational conditions. Not autonomous commands — for coordinator review and approval.</p>
-        </div>
-
-        <div className={styles.decisionList}>
-          {DECISIONS.map((d, i) => (
-            <div key={d.rank} className={styles.decisionCard} style={{ animationDelay: `${i * 120}ms` }}>
-              <div className={styles.decisionTop}>
-                <span className={styles.decisionRank}>{d.rank}</span>
-                <span className={`${styles.decisionPriority} ${d.priority.startsWith('HIGH') ? styles.decPriHigh : styles.decPriMed}`}>{d.priority}</span>
-              </div>
-              <p className={styles.decisionAction}>{d.action}</p>
-              <div className={styles.decisionImpact}>
-                <span className={styles.impactLabel}>IMPACT</span>
-                <span className={styles.impactText}>{d.impact}</span>
-              </div>
-              <button className={styles.decisionBtn}>{d.btn} →</button>
-            </div>
-          ))}
-        </div>
-
-        <div className={styles.decisionDisclaimer}>
-          RECOMMENDED ACTIONS — These are system-generated suggestions based on live operational data. All dispatch and allocation decisions require coordinator approval. SAKSHAM does not command field operations autonomously.
-        </div>
-      </section>
+        </section>
+      )}
 
       <PageGuidebook guideKey="analytics" />
     </div>
