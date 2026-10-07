@@ -1624,3 +1624,105 @@
   .compareHead span:nth-child(n+4),
   .compareRow span:nth-child(n+4) { display: none; }
 }
+
+/* ── Allocated Success Card ── */
+.allocatedState {
+  background: rgba(11, 33, 25, 0.85);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 8px;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  color: #FAF8F3;
+  animation: fadeIn 0.3s ease;
+}
+
+.allocCheck {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid #10B981;
+  color: #10B981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.allocatedState h3 {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #10B981;
+  margin: 0;
+}
+
+.allocatedState p {
+  font-size: 11px;
+  color: rgba(250, 248, 243, 0.6);
+  font-family: var(--font-mono), monospace;
+  margin: 0;
+}
+
+.allocStateGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  margin: 10px 0;
+}
+
+.allocStateGrid div {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.allocStateGrid span {
+  font-family: var(--font-mono), monospace;
+  font-size: 8.5px;
+  color: rgba(250, 248, 243, 0.4);
+}
+
+.allocStateGrid strong {
+  font-size: 11px;
+  color: #FFAE73;
+}
+
+.allocNote {
+  font-size: 11px !important;
+  color: rgba(250, 248, 243, 0.7) !important;
+  line-height: 1.4;
+}
+
+.dispatchNextBtn {
+  background: #E86F16;
+  color: #0B2119;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 10px 16px;
+  border-radius: 4px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 10px;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.dispatchNextBtn:hover {
+  background: #F97316;
+  transform: translateY(-1px);
+}

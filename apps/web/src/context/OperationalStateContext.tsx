@@ -965,7 +965,25 @@ export const OperationalStateProvider: React.FC<{ children: React.ReactNode }> =
       ]
     };
 
+    const newDelivery: ReliefDelivery = {
+      id: `DEL-${Date.now().toString(36).toUpperCase()}`,
+      dispatchId: missionId,
+      demandId: missionData.requestId,
+      incidentId: targetReq?.incidentId || 'INC-GENERAL',
+      resourceId: targetReq?.allocatedResourceId || 'RES-NCR-001',
+      vehicleId: missionData.vehicleId,
+      requestedQty: targetReq?.quantity || 100,
+      allocatedQty: targetReq?.quantity || 100,
+      deliveredQty: 0,
+      unit: targetReq?.unit || 'Units',
+      status: 'IN_DELIVERY',
+      resourceType: targetReq?.itemNeeded || 'Relief Supplies',
+      destinationName: targetReq?.zoneName || 'Emergency Drop Zone',
+      notes: `Dispatch Mission ${missionId} created.`
+    };
+
     setMissions(prev => [newMission, ...prev]);
+    setDeliveries(prev => [newDelivery, ...prev]);
 
     // Update vehicle
     setVehicles(prev =>
@@ -1090,10 +1108,23 @@ export const OperationalStateProvider: React.FC<{ children: React.ReactNode }> =
 
   /** Update mission status */
   const updateMissionStatus = (missionId: string, status: DispatchMission['status']) => {
+    const timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' });
+
     setMissions(prev =>
       prev.map(m => {
         if (m.id !== missionId) return m;
-        return { ...m, status };
+        const timeline = [...m.timeline];
+        if (status === 'DISPATCHED') timeline.push({ time: timeStr, title: 'DISPATCH CONFIRMED', done: true });
+        if (status === 'EN_ROUTE') timeline.push({ time: timeStr, title: 'CONVOY EN ROUTE', done: true });
+        if (status === 'ARRIVED') timeline.push({ time: timeStr, title: 'ARRIVED AT DESTINATION', done: true });
+        if (status === 'DELIVERED') timeline.push({ time: timeStr, title: 'DELIVERY COMPLETED', done: true });
+        return {
+          ...m,
+          status,
+          timeline,
+          speedKmh: status === 'DELIVERED' || status === 'ARRIVED' ? 0 : m.speedKmh,
+          etaMinutes: status === 'DELIVERED' || status === 'ARRIVED' ? 0 : m.etaMinutes
+        };
       })
     );
 
@@ -1103,10 +1134,24 @@ export const OperationalStateProvider: React.FC<{ children: React.ReactNode }> =
         setVehicles(prev =>
           prev.map(v => v.id === mission.vehicleId ? { ...v, status: 'ARRIVED' as VehicleStatus, speedKmh: 0, etaMinutes: 0 } : v)
         );
+        setDeliveries(prev =>
+          prev.map(d => d.dispatchId === missionId ? { ...d, status: 'ARRIVED' } : d)
+        );
         addToast('INFO', `Vehicle ${mission.vehicleId} arrived at destination.`);
       } else if (status === 'DELIVERED') {
         setVehicles(prev =>
-          prev.map(v => v.id === mission.vehicleId ? { ...v, status: 'AVAILABLE' as VehicleStatus, destination: undefined, cargo: undefined } : v)
+          prev.map(v => v.id === mission.vehicleId ? { ...v, status: 'AVAILABLE' as VehicleStatus, destination: undefined, cargo: undefined, incidentId: undefined, speedKmh: 0, etaMinutes: 0 } : v)
+        );
+        setRequests(prev =>
+          prev.map(r => r.id === mission.requestId ? { ...r, status: 'FULFILLED' as RequestStatus } : r)
+        );
+        setDeliveries(prev =>
+          prev.map(d => d.dispatchId === missionId ? { ...d, status: 'VERIFIED', deliveredQty: d.allocatedQty, verifiedAt: new Date().toISOString() } : d)
+        );
+        addToast('SUCCESS', `Mission ${missionId} delivery confirmed and demand marked fulfilled.`);
+      } else if (status === 'EN_ROUTE') {
+        setVehicles(prev =>
+          prev.map(v => v.id === mission.vehicleId ? { ...v, status: 'EN_ROUTE' as VehicleStatus, speedKmh: 48, etaMinutes: mission.etaMinutes } : v)
         );
       }
     }

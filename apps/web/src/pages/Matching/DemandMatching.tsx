@@ -919,7 +919,14 @@ export const DemandMatching: React.FC = () => {
                     <div key={k}><span>{k}</span><strong>{v}</strong></div>
                   ))}
                 </div>
-                <p className={styles.allocNote}>Ready for Dispatch &amp; Logistics phase. No vehicle has been assigned yet.</p>
+                <p className={styles.allocNote}>Ready for Dispatch &amp; Logistics phase. Vehicle and responder assignment required.</p>
+                <Link
+                  to={`/operations/dispatch?allocationId=${selectedDemand.id}`}
+                  className={styles.dispatchNextBtn}
+                >
+                  <span>ASSIGN FLEET &amp; CREATE MISSION</span>
+                  <ArrowRight size={14} />
+                </Link>
               </div>
             ) : matchOutput?.bestMatch ? (
               <RecommendationPanel

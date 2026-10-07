@@ -439,14 +439,32 @@ export const Dispatch: React.FC = () => {
                   </button>
                 )}
                 {activeMission.status === 'ARRIVED' && (
-                  <button className={styles.primaryActionBtn} onClick={handleUpdateStatus}>
-                    {t('delivery.verifyDelivery')} <CheckCircle size={13} />
-                  </button>
+                  <>
+                    <button className={styles.primaryActionBtn} onClick={handleUpdateStatus}>
+                      {t('delivery.verifyDelivery')} <CheckCircle size={13} />
+                    </button>
+                    <Link
+                      to={`/operations/delivery?deliveryId=${deliveries.find(d => d.dispatchId === activeMission.id)?.id || ''}`}
+                      className={styles.primaryActionBtn}
+                      style={{ background: '#2563EB', textDecoration: 'none' }}
+                    >
+                      OPEN DELIVERY RECONCILIATION <ArrowRight size={13} />
+                    </Link>
+                  </>
                 )}
                 {activeMission.status === 'DELIVERED' && (
-                  <div className={styles.completedBanner}>
-                    <Check size={14} /> {t('status.DELIVERED')}
-                  </div>
+                  <>
+                    <div className={styles.completedBanner}>
+                      <Check size={14} /> {t('status.DELIVERED')}
+                    </div>
+                    <Link
+                      to="/operations/command-center"
+                      className={styles.primaryActionBtn}
+                      style={{ background: '#10B981', textDecoration: 'none' }}
+                    >
+                      RETURN TO COMMAND CENTER <ArrowRight size={13} />
+                    </Link>
+                  </>
                 )}
                 
                 {activeMission.status !== 'DELIVERED' && activeMission.trafficLevel === 'BLOCKED' && (
