@@ -144,3 +144,15 @@ def get_delivery_service(db: Session = Depends(get_db)) -> DeliveryService:
 def get_shelter_service(db: Session = Depends(get_db)) -> ShelterService:
     repo = SqlAlchemyShelterRepository(db)
     return ShelterService(repo)
+
+from app.domain.routing.service import RoutingService
+
+def get_routing_service(db: Session = Depends(get_db)) -> RoutingService:
+    dispatch = SqlAlchemyDispatchRepository(db)
+    alloc = SqlAlchemyAllocationRepository(db)
+    vehicle = SqlAlchemyVehicleRepository(db)
+    resource = SqlAlchemyResourceRepository(db)
+    demand = SqlAlchemyDemandRepository(db)
+    incident = SqlAlchemyIncidentRepository(db)
+    return RoutingService(dispatch, alloc, vehicle, resource, demand, incident)
+
