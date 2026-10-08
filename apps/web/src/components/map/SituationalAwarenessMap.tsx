@@ -46,7 +46,7 @@ export const SituationalAwarenessMap: React.FC = () => {
         </div>
       </div>
 
-      {/* Actual MapLibre Component */}
+      {/* Actual MapLibre Component with showControls={false} to avoid overlay collision */}
       <div className={styles.mapContainerInner}>
         <MapView 
           incidents={incidents}
@@ -54,6 +54,7 @@ export const SituationalAwarenessMap: React.FC = () => {
           vehicles={vehicles}
           shelters={shelters}
           layerFilters={layerFilters}
+          showControls={false}
         />
       </div>
 
