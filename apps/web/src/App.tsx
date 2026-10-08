@@ -23,6 +23,7 @@ import IncidentWorkspace from './pages/Incidents/IncidentWorkspace';
 import DemandMatching from './pages/Matching/DemandMatching';
 import Dispatch from './pages/Dispatch/Dispatch';
 import Delivery from './pages/Delivery/Delivery';
+import LogisticsOptimizer from './pages/Optimizer/LogisticsOptimizer';
 import NotFound from './pages/NotFound/NotFound';
 import OfficerLogin from './pages/OfficerLogin/OfficerLogin';
 import ForgotPassword from './pages/OfficerLogin/ForgotPassword';
@@ -92,6 +93,8 @@ const AppRoutes: React.FC = () => {
               <Route path="operations/vehicles" element={<Vehicles />} />
               <Route path="operations/shelters" element={<Shelters />} />
               <Route path="operations/analytics" element={<Analytics />} />
+              <Route path="operations/optimizer" element={<LogisticsOptimizer />} />
+              <Route path="operations/routes" element={<LogisticsOptimizer />} />
 
               {/* ── Protected Command Board (authentication required) ── */}
               <Route
@@ -105,6 +108,8 @@ const AppRoutes: React.FC = () => {
                 <Route index element={<Navigate to="/operations/command-center" replace />} />
                 <Route path="command-center" element={<CommandCenter />} />
                 <Route path="matching" element={<DemandMatching />} />
+                <Route path="optimizer" element={<LogisticsOptimizer />} />
+                <Route path="routes" element={<LogisticsOptimizer />} />
                 <Route path="dispatch" element={<Dispatch />} />
                 <Route path="delivery" element={<Delivery />} />
                 <Route path="incidents" element={<Incidents />} />

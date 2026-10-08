@@ -434,6 +434,7 @@ export const OperationsLayout: React.FC = () => {
   const navItems: { path: string; label: string; badge?: string }[] = [
     { path: '/operations/command-center', label: t('navigation.commandCenter') },
     { path: '/operations/matching', label: t('navigation.matching') },
+    { path: '/operations/optimizer', label: 'OPTIMIZER', badge: 'VRP' },
     { path: '/operations/dispatch', label: t('navigation.dispatch') },
     { path: '/operations/delivery', label: t('navigation.delivery') }
   ];

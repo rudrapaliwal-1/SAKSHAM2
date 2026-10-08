@@ -5,6 +5,7 @@ import { apiRouter } from './routes/api.js';
 import { matchingRouter } from './modules/matching/matching.routes.js';
 import { allocationsRouter } from './routes/allocations.routes.js';
 import { decisionRouter } from './modules/decision/decision.routes.js';
+import { optimizationRouter } from './modules/optimization/optimization.routes.js';
 import { ZodError } from 'zod';
 
 // Load environment variables
@@ -28,6 +29,8 @@ app.use('/api', apiRouter);
 app.use('/api/matching', matchingRouter);
 app.use('/api/allocations', allocationsRouter);
 app.use('/api/decision', decisionRouter);
+app.use('/api/optimization', optimizationRouter);
+app.use('/api/v1', optimizationRouter);
 
 // Base route
 app.get('/', (req: Request, res: Response) => {
