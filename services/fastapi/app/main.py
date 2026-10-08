@@ -34,6 +34,11 @@ async def saksham_exception_handler(request: Request, exc: SakshamException):
 # Include the central api router prefixing everything with settings.API_PREFIX (default /api/v1)
 app.include_router(api_router, prefix=settings.API_PREFIX)
 
+# Include the routing & optimization module
+from app.routing.routes import router as routing_router
+app.include_router(routing_router)
+app.include_router(routing_router, prefix=settings.API_PREFIX)
+
 # Separate health endpoint at root /health as requested by the user
 @app.get("/health", tags=["Health"], summary="Root Health Status Check")
 async def root_health():
