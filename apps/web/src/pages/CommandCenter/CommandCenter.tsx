@@ -655,11 +655,11 @@ export const CommandCenter: React.FC = () => {
             missions={missions}
             selectedIncident={selectedItem?.type === 'incident' ? selectedItem.obj : null}
             selectedVehicle={selectedItem?.type === 'vehicle' ? selectedItem.obj : null}
-            onSelectIncident={(i) => setSelectedItem({ type: 'incident', obj: i })}
-            onSelectVehicle={(v) => setSelectedItem({ type: 'vehicle', obj: v })}
-            onSelectShelter={(s) => setSelectedItem({ type: 'shelter', obj: s })}
-            onSelectDemand={(d) => setSelectedItem({ type: 'demand', obj: d })}
-            onSelectResource={(r) => setSelectedItem({ type: 'resource', obj: r })}
+            onSelectIncident={(i: any) => setSelectedItem({ type: 'incident', obj: i })}
+            onSelectVehicle={(v: any) => setSelectedItem({ type: 'vehicle', obj: v })}
+            onSelectShelter={(s: any) => setSelectedItem({ type: 'shelter', obj: s })}
+            onSelectDemand={(d: any) => setSelectedItem({ type: 'demand', obj: d })}
+            onSelectResource={(r: any) => setSelectedItem({ type: 'resource', obj: r })}
             layerFilters={layerFilters}
           />
         </div>
