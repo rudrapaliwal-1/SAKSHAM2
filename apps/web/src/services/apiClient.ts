@@ -213,5 +213,48 @@ export const apiClient = {
       body: JSON.stringify({ reason }),
     });
   },
+
+  // ── Routing (OSRM road geometry + OR-Tools fleet assignment) ──
+  /**
+   * Real road-following route geometry for a dispatch (vehicle -> resource
+   * depot -> incident site), as GeoJSON-style [lng, lat] coordinate pairs.
+   * Falls back server-side to a straight-line approximation if OSRM is
+   * disabled or unreachable — check the `source` field on the response.
+   */
+  async getDispatchRoute(dispatchId: string) {
+    return fetchJson<{
+      dispatchId: string;
+      vehicleId: string;
+      geometry: [number, number][];
+      distanceKm: number;
+      durationMinutes: number;
+      source: 'local' | 'public_fallback' | 'straight_line_fallback';
+    }>(`/routing/dispatch/${dispatchId}/route`);
+  },
+
+  /**
+   * Jointly assigns available vehicles to approved-but-unassigned
+   * allocations using OR-Tools, minimizing total road distance weighted
+   * by demand priority. Pass allocationIds to target a specific subset,
+   * or omit to target every eligible approved allocation.
+   */
+  async optimizeFleet(allocationIds?: string[]) {
+    return fetchJson<{
+      assignments: Array<{
+        allocationId: string;
+        vehicleId: string;
+        vehicleName: string;
+        demandId: string;
+        resourceId: string;
+        distanceKm: number;
+        priority: string;
+      }>;
+      unassignedAllocationIds: string[];
+      osrmSource: string;
+    }>('/routing/optimize-fleet', {
+      method: 'POST',
+      body: JSON.stringify({ allocationIds: allocationIds ?? null }),
+    });
+  },
 };
 export default apiClient;
