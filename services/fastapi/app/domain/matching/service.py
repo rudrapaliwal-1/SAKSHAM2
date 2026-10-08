@@ -1,7 +1,7 @@
 from typing import List, Dict, Any
 from app.repositories.interfaces import DemandRepositoryInterface, ResourceRepositoryInterface
 from app.schemas.matching import MatchResponse, MatchRecommendation, ScoreBreakdown
-from app.utils.geo import calculate_haversine_distance
+from app.integrations.osrm_client import get_road_distance_km
 from app.core.exceptions import EntityNotFoundException
 from app.schemas.resource import ResourceStatus
 
@@ -52,8 +52,9 @@ class MatchingService:
             unreserved_qty = res.availableQuantity - res.reservedQuantity
             can_fully_fulfill = unreserved_qty >= demand.quantity
 
-            # Calculate distance
-            dist = calculate_haversine_distance(
+            # Calculate distance (real road distance via OSRM when enabled,
+            # falls back to straight-line automatically if not)
+            dist = get_road_distance_km(
                 incident_lat, incident_lng,
                 res.latitude, res.longitude
             )

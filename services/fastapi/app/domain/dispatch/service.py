@@ -11,7 +11,7 @@ from app.repositories.interfaces import (
 from app.schemas.dispatch import DispatchResponse, DispatchCreate, DispatchStatus, VehicleRecommendation, VehicleScoreBreakdown, DispatchActionRequest
 from app.domain.dispatch.state_machine import is_valid_dispatch_transition
 from app.core.exceptions import EntityNotFoundException, InvalidStateTransitionException, ValidationException, SakshamException
-from app.utils.geo import calculate_haversine_distance
+from app.integrations.osrm_client import get_road_distance_km
 from app.utils.events import EventPublisher
 from app.schemas.vehicle import VehicleStatus, VehicleUpdate
 from app.schemas.allocation import AllocationStatus, AllocationStatusUpdate
@@ -82,7 +82,7 @@ class DispatchService:
             if veh.status != VehicleStatus.AVAILABLE:
                 continue
 
-            dist = calculate_haversine_distance(
+            dist = get_road_distance_km(
                 veh.currentLatitude, veh.currentLongitude,
                 resource.latitude, resource.longitude
             )
