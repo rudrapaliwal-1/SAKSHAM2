@@ -35,6 +35,5 @@ api_router.include_router(allocations.router, prefix="/allocations", tags=["Allo
 api_router.include_router(dispatch.router, prefix="/dispatch", tags=["Dispatch"])
 api_router.include_router(delivery.router, prefix="/delivery", tags=["Delivery"])
 api_router.include_router(translation.router, prefix="/translation", tags=["Translation"])
+api_router.include_router(routing.router, prefix="/routing", tags=["Routing"])
 api_router.include_router(websocket.router, prefix="/ws", tags=["WebSocket"])
-api_router.include_router(routing.router, prefix="/routing", tags=["Routing & Fleet Optimization"])
-
