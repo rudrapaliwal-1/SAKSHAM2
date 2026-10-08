@@ -119,11 +119,12 @@ describe('SAKSHAM Routing & Logistics Optimization Engine Tests', () => {
   // Test 8: Anti-Depletion / No Negative Stock
   it('8. should prevent depot over-allocation and negative stock balance', () => {
     const demo = OptimizationService.getDemoScenario();
+    const firstDepotId = demo.depots[0].id;
     // artifically constrain first depot to 30 units
-    const scarceDepots = demo.depots.map((d) => (d.id === 'DEPOT-DEL-01' ? { ...d, availableQuantity: 30 } : d));
+    const scarceDepots = demo.depots.map((d) => (d.id === firstDepotId ? { ...d, availableQuantity: 30 } : d));
 
     const { matched, depotAllocations } = MatchingPreprocessor.preprocessDemands(demo.demands, scarceDepots);
-    expect(depotAllocations['DEPOT-DEL-01']).toBeLessThanOrEqual(30);
+    expect(depotAllocations[firstDepotId]).toBeLessThanOrEqual(30);
   });
 
   // Test 9: Critical Demand Prioritization
@@ -135,9 +136,9 @@ describe('SAKSHAM Routing & Logistics Optimization Engine Tests', () => {
         id: 'VEH-MINI-01',
         name: 'Mini Van',
         type: 'VAN',
-        capacity: 90,
-        currentLocation: { lat: 28.6755, lng: 77.2215 },
-        startDepotId: 'DEPOT-DEL-01',
+        capacity: 1500,
+        currentLocation: demo.depots[0].location,
+        startDepotId: demo.depots[0].id,
       },
     ];
 
@@ -157,7 +158,7 @@ describe('SAKSHAM Routing & Logistics Optimization Engine Tests', () => {
     expect(result.metrics).toBeDefined();
     expect(result.metrics.totalDistanceKm).toBeGreaterThan(0);
     expect(result.metrics.totalTravelTimeMinutes).toBeGreaterThan(0);
-    expect(result.metrics.requestsServed).toBe(10);
+    expect(result.metrics.requestsServed).toBe(demo.demands.length);
     expect(result.metrics.criticalRequestsServed).toBeGreaterThan(0);
 
     expect(result.comparison).toBeDefined();
@@ -211,7 +212,7 @@ describe('SAKSHAM Routing & Logistics Optimization Engine Tests', () => {
     );
 
     expect(reoptimized.status).toBe('OPTIMAL');
-    expect(reoptimized.metrics.requestsServed).toBe(11);
+    expect(reoptimized.metrics.requestsServed).toBe(demo.demands.length + 1);
     const surgeServed = reoptimized.routes.some((r) =>
       r.stops.some((s) => s.nodeId === 'DEM-SURGE-999')
     );

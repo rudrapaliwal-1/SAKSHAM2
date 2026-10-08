@@ -12,6 +12,9 @@ export interface VrpSolverPayload {
   ends: number[];
   priorities: string[];
   node_ids: string[];
+  strategy?: string;
+  max_solve_time_seconds?: number;
+  service_time_seconds_per_stop?: number;
 }
 
 export interface RawVrpRoute {

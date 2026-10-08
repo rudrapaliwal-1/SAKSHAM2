@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { OptimizationService } from './optimization.service.js';
 import { RoutingService } from '../routing/routing.service.js';
 import { LatLng } from '../routing/coordinates.js';
-import { VehicleInput, DepotInput, DemandTargetInput } from './vrp.types.js';
+import { VehicleInput, DepotInput, DemandTargetInput, SolverConfigInput } from './vrp.types.js';
 
 export const optimizationRouter = Router();
 
@@ -12,10 +12,11 @@ export const optimizationRouter = Router();
  */
 optimizationRouter.post('/optimize', async (req: Request, res: Response) => {
   try {
-    let { vehicles, depots, demands } = req.body as {
+    let { vehicles, depots, demands, solverConfig } = req.body as {
       vehicles?: VehicleInput[];
       depots?: DepotInput[];
       demands?: DemandTargetInput[];
+      solverConfig?: SolverConfigInput;
     };
 
     // If no payload provided, load default deterministic demo scenario
@@ -26,7 +27,7 @@ optimizationRouter.post('/optimize', async (req: Request, res: Response) => {
       demands = demands || demo.demands;
     }
 
-    const result = await OptimizationService.optimizeRoutes(vehicles, depots, demands);
+    const result = await OptimizationService.optimizeRoutes(vehicles, depots, demands, solverConfig);
     return res.json(result);
   } catch (err: any) {
     console.error('[OPTIMIZATION API ERROR]:', err);

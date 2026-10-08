@@ -1,285 +1,447 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import styles from './LogisticsOptimizer.module.css';
 import { useOperationalState } from '../../context/OperationalStateContext';
 import {
   Zap,
-  AlertTriangle,
-  Compass,
+  Play,
+  Pause,
+  RotateCcw,
   CheckCircle2,
   Truck,
-  Download,
-  Flame,
   Shield,
   MapPin,
-  Radio,
+  Sliders,
+  ChevronDown,
+  ChevronUp,
+  Printer,
+  Send,
+  Check,
+  X,
+  FileSpreadsheet,
+  FileText
 } from 'lucide-react';
 
-const VEHICLE_COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EC4899'];
+const MAP_STYLES: Record<string, string | any> = {
+  DARK: 'https://demotiles.maplibre.org/style.json',
+  LIGHT: {
+    version: 8,
+    sources: {
+      'carto-light': {
+        type: 'raster',
+        tiles: ['https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'],
+        tileSize: 256,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      },
+    },
+    layers: [
+      {
+        id: 'carto-light-layer',
+        type: 'raster',
+        source: 'carto-light',
+        minzoom: 0,
+        maxzoom: 19,
+      },
+    ],
+  },
+  OSM: {
+    version: 8,
+    sources: {
+      'osm-raster': {
+        type: 'raster',
+        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      },
+    },
+    layers: [
+      {
+        id: 'osm-raster-layer',
+        type: 'raster',
+        source: 'osm-raster',
+        minzoom: 0,
+        maxzoom: 19,
+      },
+    ],
+  },
+};
+
+const DEFAULT_DEPOTS = [
+  {
+    id: 'DEPOT-NAT-01',
+    name: 'National Disaster Command Hub',
+    location: { lat: 28.6139, lng: 77.2090 },
+    locationName: 'New Delhi (HQ)',
+    category: 'MEDICAL',
+    resourceTypes: ['MEDICAL', 'WATER', 'FOOD'],
+    availableQuantity: 10000,
+    status: 'ACTIVE' as const,
+    stationedVehicleCount: 2,
+    selected: true,
+  },
+  {
+    id: 'DEPOT-MAR-02',
+    name: 'Western Maritime & Coastal Hub',
+    location: { lat: 19.0760, lng: 72.8777 },
+    locationName: 'Mumbai, Maharashtra',
+    category: 'WATER',
+    resourceTypes: ['WATER', 'FOOD'],
+    availableQuantity: 9000,
+    status: 'ACTIVE' as const,
+    stationedVehicleCount: 2,
+    selected: true,
+  },
+  {
+    id: 'DEPOT-EAS-03',
+    name: 'Eastern Regional Logistics Base',
+    location: { lat: 22.5726, lng: 88.3639 },
+    locationName: 'Kolkata, West Bengal',
+    category: 'FOOD',
+    resourceTypes: ['FOOD', 'CLOTHING'],
+    availableQuantity: 8000,
+    status: 'ACTIVE' as const,
+    stationedVehicleCount: 1,
+    selected: true,
+  },
+  {
+    id: 'DEPOT-SOU-04',
+    name: 'Southern Peninsular Depot',
+    location: { lat: 13.0827, lng: 80.2707 },
+    locationName: 'Chennai, Tamil Nadu',
+    category: 'MEDICAL',
+    resourceTypes: ['MEDICAL', 'WATER'],
+    availableQuantity: 7500,
+    status: 'ACTIVE' as const,
+    stationedVehicleCount: 1,
+    selected: true,
+  },
+];
+
+const DEFAULT_DEMANDS = [
+  {
+    id: 'DEM-SRI-01',
+    requestId: 'REQ-101',
+    title: 'Srinagar Valley Relief Staging',
+    location: { lat: 34.0837, lng: 74.7973 },
+    locationName: 'Srinagar, Jammu & Kashmir',
+    category: 'MEDICAL',
+    itemNeeded: 'Emergency Medical & Trauma Kits',
+    quantity: 1200,
+    unit: 'units',
+    priority: 'CRITICAL' as const,
+    peopleAffected: 4800,
+    status: 'PENDING',
+    selected: true,
+  },
+  {
+    id: 'DEM-KUT-02',
+    requestId: 'REQ-102',
+    title: 'Kutch Coastal Evacuation Base',
+    location: { lat: 23.2420, lng: 69.6669 },
+    locationName: 'Bhuj, Kutch, Gujarat',
+    category: 'WATER',
+    itemNeeded: 'Potable Drinking Water & Rations',
+    quantity: 1400,
+    unit: 'units',
+    priority: 'CRITICAL' as const,
+    peopleAffected: 5600,
+    status: 'PENDING',
+    selected: true,
+  },
+  {
+    id: 'DEM-BRA-03',
+    requestId: 'REQ-103',
+    title: 'Brahmaputra Flood Command',
+    location: { lat: 26.1445, lng: 91.7362 },
+    locationName: 'Guwahati, Assam',
+    category: 'FOOD',
+    itemNeeded: 'High-Calorie Ready-to-Eat Rations',
+    quantity: 1800,
+    unit: 'units',
+    priority: 'CRITICAL' as const,
+    peopleAffected: 7200,
+    status: 'PENDING',
+    selected: true,
+  },
+  {
+    id: 'DEM-JOS-04',
+    requestId: 'REQ-104',
+    title: 'Joshimath Subsidence Emergency Center',
+    location: { lat: 30.5574, lng: 79.5663 },
+    locationName: 'Joshimath, Chamoli, Uttarakhand',
+    category: 'MEDICAL',
+    itemNeeded: 'Triage & Cold Weather Medical Kits',
+    quantity: 800,
+    unit: 'units',
+    priority: 'CRITICAL' as const,
+    peopleAffected: 3200,
+    status: 'PENDING',
+    selected: true,
+  },
+  {
+    id: 'DEM-PUR-05',
+    requestId: 'REQ-105',
+    title: 'Puri Cyclone Evacuation Camp',
+    location: { lat: 19.8135, lng: 85.8312 },
+    locationName: 'Puri Coastal Zone, Odisha',
+    category: 'FOOD',
+    itemNeeded: 'Emergency Nutrition & Blankets',
+    quantity: 1500,
+    unit: 'units',
+    priority: 'HIGH' as const,
+    peopleAffected: 6000,
+    status: 'PENDING',
+    selected: true,
+  },
+  {
+    id: 'DEM-WAY-06',
+    requestId: 'REQ-106',
+    title: 'Wayanad Landslide Medical Outpost',
+    location: { lat: 11.6854, lng: 76.1320 },
+    locationName: 'Meppadi, Wayanad, Kerala',
+    category: 'MEDICAL',
+    itemNeeded: 'Advanced Triage Trauma Supplies',
+    quantity: 950,
+    unit: 'units',
+    priority: 'CRITICAL' as const,
+    peopleAffected: 3800,
+    status: 'PENDING',
+    selected: true,
+  },
+  {
+    id: 'DEM-BAR-07',
+    requestId: 'REQ-107',
+    title: 'Barmer Desert Border Relief Post',
+    location: { lat: 25.7532, lng: 71.4181 },
+    locationName: 'Barmer, Rajasthan',
+    category: 'WATER',
+    itemNeeded: 'Emergency Water Bowsers & Cans',
+    quantity: 700,
+    unit: 'units',
+    priority: 'MEDIUM' as const,
+    peopleAffected: 2800,
+    status: 'PENDING',
+    selected: true,
+  },
+  {
+    id: 'DEM-SUN-08',
+    requestId: 'REQ-108',
+    title: 'Sundarbans Coastal Surge Station',
+    location: { lat: 21.9497, lng: 88.9000 },
+    locationName: 'Gosaba, Sundarbans, West Bengal',
+    category: 'FOOD',
+    itemNeeded: 'Purification Kits & Dry Supplies',
+    quantity: 1100,
+    unit: 'units',
+    priority: 'HIGH' as const,
+    peopleAffected: 4400,
+    status: 'PENDING',
+    selected: true,
+  },
+];
+
+const DEFAULT_VEHICLES = [
+  {
+    id: 'V-01',
+    name: 'Convoy Alpha (Northern)',
+    type: 'HEAVY RELIEF CONVOY',
+    capacity: 5000,
+    currentLocation: { lat: 28.6139, lng: 77.2090 },
+    startDepotId: 'DEPOT-NAT-01',
+    endDepotId: 'DEPOT-NAT-01',
+    driverName: 'Col. Vikram Singh (NDRF)',
+    status: 'AVAILABLE' as const,
+    speedKmh: 45,
+    color: '#F97316',
+  },
+  {
+    id: 'V-02',
+    name: 'Rapid Air/Road Transport',
+    type: 'HIGH-SPEED MEDICAL TRANSPORTER',
+    capacity: 3000,
+    currentLocation: { lat: 28.6139, lng: 77.2090 },
+    startDepotId: 'DEPOT-NAT-01',
+    endDepotId: 'DEPOT-NAT-01',
+    driverName: 'Maj. Sneha Rao (DMC)',
+    status: 'AVAILABLE' as const,
+    speedKmh: 55,
+    color: '#10B981',
+  },
+  {
+    id: 'V-03',
+    name: 'Western Carrier Bravo',
+    type: 'ALL-TERRAIN WATER BOWSER',
+    capacity: 4500,
+    currentLocation: { lat: 19.0760, lng: 72.8777 },
+    startDepotId: 'DEPOT-MAR-02',
+    endDepotId: 'DEPOT-MAR-02',
+    driverName: 'Subedar R. Patil (Coast Guard)',
+    status: 'AVAILABLE' as const,
+    speedKmh: 42,
+    color: '#3B82F6',
+  },
+  {
+    id: 'V-04',
+    name: 'Eastern Disaster Transporter',
+    type: 'HEAVY RIVERINE SUPPLY TRUCK',
+    capacity: 4000,
+    currentLocation: { lat: 22.5726, lng: 88.3639 },
+    startDepotId: 'DEPOT-EAS-03',
+    endDepotId: 'DEPOT-EAS-03',
+    driverName: 'Capt. A. Mukherjee (SDRF)',
+    status: 'AVAILABLE' as const,
+    speedKmh: 40,
+    color: '#8B5CF6',
+  },
+  {
+    id: 'V-05',
+    name: 'Southern Emergency Convoy',
+    type: 'RAPID MOBILITY EMERGENCY FLEET',
+    capacity: 4000,
+    currentLocation: { lat: 13.0827, lng: 80.2707 },
+    startDepotId: 'DEPOT-SOU-04',
+    endDepotId: 'DEPOT-SOU-04',
+    driverName: 'Lt. K. Ramanathan (Southern Cmd)',
+    status: 'AVAILABLE' as const,
+    speedKmh: 48,
+    color: '#EC4899',
+  },
+];
 
 export const LogisticsOptimizer: React.FC = () => {
+  const navigate = useNavigate();
+  const { setMissions, setVehicles, addToast } = useOperationalState();
+
   const [mounted, setMounted] = useState(false);
+  const [activeMapStyle, setActiveMapStyle] = useState<'DARK' | 'LIGHT' | 'OSM'>('DARK');
+  const [depots, setDepots] = useState(DEFAULT_DEPOTS);
+  const [demands, setDemands] = useState(DEFAULT_DEMANDS);
+  const [vehicles] = useState(DEFAULT_VEHICLES);
+
+  // Solver Configuration State
+  const [solverStrategy, setSolverStrategy] = useState('PATH_CHEAPEST_ARC');
+  const [maxSolveTime, setMaxSolveTime] = useState(15);
+  const [serviceTimePerStop, setServiceTimePerStop] = useState(10);
+  const [useOsrmRoadApi, setUseOsrmRoadApi] = useState(true);
+
+  // Pipeline Execution State
   const [optimizing, setOptimizing] = useState(false);
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('ALL');
-  const [selectedDepotId, setSelectedDepotId] = useState<string | null>(null);
-  const [disruptionActive, setDisruptionActive] = useState(false);
-  const [disruptionInfo, setDisruptionInfo] = useState<any>(null);
-  const [eventLogs, setEventLogs] = useState<Array<{ time: string; text: string; type: 'OPTIMAL' | 'ALERT' | 'INFO' }>>([]);
+  const [optimizationStep, setOptimizationStep] = useState<string>('');
   const [optimizationData, setOptimizationData] = useState<any>(null);
 
-  const { addToast } = useOperationalState();
+  // Map & Route Visual State
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('ALL');
+  const [expandedWaypointVehicleId, setExpandedWaypointVehicleId] = useState<string | null>(null);
 
+  // Playback State
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [playbackProgress, setPlaybackProgress] = useState<number>(0);
+  const [playbackActiveVehicle, setPlaybackActiveVehicle] = useState<string>('V-01');
+  const animationFrameRef = useRef<number | null>(null);
+
+  // Dispatch Confirmation Modal
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
+
+  // Refs
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  const animatedVehicleMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
 
-  // Initialize page mounting animation
+  // Mount animation
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 60);
     return () => clearTimeout(t);
   }, []);
 
-  // Fetch initial optimization solution
-  const runOptimization = async (isReoptimize: boolean = false, isSurge: boolean = false) => {
+  // Toggle Depot selection
+  const handleToggleDepot = (depotId: string) => {
+    setDepots(prev =>
+      prev.map(d => (d.id === depotId ? { ...d, selected: !d.selected } : d))
+    );
+  };
+
+  // Toggle Demand selection
+  const handleToggleDemand = (demandId: string) => {
+    setDemands(prev =>
+      prev.map(d => (d.id === demandId ? { ...d, selected: !d.selected } : d))
+    );
+  };
+
+  // Run Multi-Depot Optimization
+  const handleRunOptimization = async () => {
     setOptimizing(true);
+    setOptimizationStep('COLLECTING DEPOTS & DEMAND TARGETS...');
+
     try {
-      const endpoint = isReoptimize
-        ? 'http://localhost:4000/api/v1/reoptimize'
-        : 'http://localhost:4000/api/v1/optimize';
+      await new Promise(r => setTimeout(r, 250));
+      setOptimizationStep('REQUESTING OSRM TRAVEL MATRIX...');
 
-      const payload = isSurge
-        ? { eventType: 'NEW_CRITICAL_DEMAND' }
-        : {};
+      const activeDepots = depots.filter(d => d.selected);
+      const activeDemands = demands.filter(d => d.selected);
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
+      if (activeDepots.length === 0 || activeDemands.length === 0) {
+        throw new Error('Please select at least 1 Resource Depot and 1 Demand Target Point.');
       }
 
-      const data = await response.json();
-      setOptimizationData(data);
+      await new Promise(r => setTimeout(r, 350));
+      setOptimizationStep('SOLVING OR-TOOLS VRP MODEL WITH CAPACITY CONSTRAINTS...');
 
-      const logText = isSurge
-        ? 'LIVE RE-OPTIMIZATION: New CRITICAL request inserted at Kashmiri Gate Metro Shelter. High-priority vehicle rerouted.'
-        : `OPTIMIZATION COMPLETE: ${data.metrics?.vehiclesUsed || 4} vehicles dispatched across ${data.metrics?.requestsServed || 10} demand targets (${data.metrics?.totalDistanceKm} km total road network).`;
-
-      setEventLogs(prev => [
-        {
-          time: new Date().toLocaleTimeString('en-US', { hour12: false }),
-          text: logText,
-          type: isSurge ? 'ALERT' : 'OPTIMAL',
-        },
-        ...prev,
-      ]);
-
-      addToast('SUCCESS', isSurge ? 'Live Re-Optimization: Critical Demand Routed!' : 'Multi-Vehicle Route Optimization Complete!');
-    } catch (err: any) {
-      console.warn('[OPTIMIZER API]: Falling back to local deterministic solver payload.', err);
-      // Fallback deterministic simulation payload
-      fetchDemoFallback(isSurge);
-    } finally {
-      setOptimizing(false);
-    }
-  };
-
-  // Fallback if backend service is booting
-  const fetchDemoFallback = (_isSurge: boolean = false) => {
-    const fallback = {
-      status: 'OPTIMAL',
-      message: 'All demand targets successfully routed within vehicle capacity.',
-      routes: [
-        {
-          vehicleId: 'VEH-TRK-01',
-          vehicleName: 'NDRF Heavy Response Truck V-01',
-          vehicleType: 'HEAVY TRUCK',
-          driverName: 'Havildar Rajesh Kumar',
-          depotId: 'DEPOT-DEL-01',
-          depotName: 'Delhi Central Relief Depot (Civil Lines)',
-          status: 'ASSIGNED',
-          totalDistanceKm: 18.4,
-          totalDurationMinutes: 34.0,
-          totalLoadDelivered: 120,
-          vehicleCapacity: 180,
-          capacityUtilizationPct: 66.7,
-          prioritySummary: { critical: 2, high: 1, medium: 0, low: 0 },
-          optimizerEngine: 'OR-TOOLS VRP',
-          routingSource: 'OSRM_LIVE',
-          stops: [
-            { stopIndex: 0, nodeId: 'DEPOT-DEL-01', nodeType: 'DEPOT', name: 'Delhi Central Relief Depot', location: { lat: 28.6755, lng: 77.2215 }, demandQuantity: 0, accumulatedLoad: 0, etaMinutesFromStart: 0, distanceFromPrevKm: 0 },
-            { stopIndex: 1, nodeId: 'DEM-DEL-001', nodeType: 'DEMAND', name: 'Yamuna Khadar Relief Camp', location: { lat: 28.6650, lng: 77.2320 }, demandQuantity: 40, accumulatedLoad: 40, priority: 'CRITICAL', etaMinutesFromStart: 12, distanceFromPrevKm: 3.8 },
-            { stopIndex: 2, nodeId: 'DEM-DEL-004', nodeType: 'DEMAND', name: 'Majnu Ka Tilla Relief Camp', location: { lat: 28.6920, lng: 77.2180 }, demandQuantity: 35, accumulatedLoad: 75, priority: 'CRITICAL', etaMinutesFromStart: 22, distanceFromPrevKm: 4.6 },
-            { stopIndex: 3, nodeId: 'DEPOT-DEL-01', nodeType: 'DEPOT', name: 'Delhi Central Relief Depot', location: { lat: 28.6755, lng: 77.2215 }, demandQuantity: 0, accumulatedLoad: 75, etaMinutesFromStart: 34, distanceFromPrevKm: 3.5 },
-          ],
-          roadGeometry: {
-            coordinates: [
-              [77.2215, 28.6755],
-              [77.2260, 28.6700],
-              [77.2320, 28.6650],
-              [77.2250, 28.6800],
-              [77.2180, 28.6920],
-              [77.2215, 28.6755],
-            ],
-            distanceKm: 18.4,
-            durationMinutes: 34,
-            source: 'OSRM_LIVE',
-          },
-          explanation: [
-            'Dispatched from Delhi Central Relief Depot with 120 / 180 units cargo.',
-            'Serves 2 CRITICAL priority medical camps in North Delhi flood corridor.',
-            'Optimized multi-stop road sequence minimizes detour time to 34 minutes.',
-            'Capacity utilization: 66.7% within safe vehicular payload limit.',
-          ],
-        },
-        {
-          vehicleId: 'VEH-TRK-03',
-          vehicleName: 'Ghaziabad Water Bowser V-03',
-          vehicleType: 'WATER CARRIER',
-          driverName: 'Subedar Kuldeep Singh',
-          depotId: 'DEPOT-DEL-02',
-          depotName: 'Ghaziabad Emergency Supply Hub (Sahibabad)',
-          status: 'ASSIGNED',
-          totalDistanceKm: 24.2,
-          totalDurationMinutes: 42.0,
-          totalLoadDelivered: 200,
-          vehicleCapacity: 220,
-          capacityUtilizationPct: 90.9,
-          prioritySummary: { critical: 1, high: 1, medium: 0, low: 0 },
-          optimizerEngine: 'OR-TOOLS VRP',
-          routingSource: 'OSRM_LIVE',
-          stops: [
-            { stopIndex: 0, nodeId: 'DEPOT-DEL-02', nodeType: 'DEPOT', name: 'Ghaziabad Emergency Supply Hub', location: { lat: 28.6705, lng: 77.3450 }, demandQuantity: 0, accumulatedLoad: 0, etaMinutesFromStart: 0, distanceFromPrevKm: 0 },
-            { stopIndex: 1, nodeId: 'DEM-DEL-002', nodeType: 'DEMAND', name: 'Geeta Colony Inundated Sector 3', location: { lat: 28.6510, lng: 77.2480 }, demandQuantity: 120, accumulatedLoad: 120, priority: 'CRITICAL', etaMinutesFromStart: 18, distanceFromPrevKm: 11.2 },
-            { stopIndex: 2, nodeId: 'DEM-DEL-005', nodeType: 'DEMAND', name: 'Chilla Khadar Inundation Point', location: { lat: 28.6015, lng: 77.3025 }, demandQuantity: 80, accumulatedLoad: 200, priority: 'HIGH', etaMinutesFromStart: 31, distanceFromPrevKm: 7.8 },
-            { stopIndex: 3, nodeId: 'DEPOT-DEL-02', nodeType: 'DEPOT', name: 'Ghaziabad Emergency Supply Hub', location: { lat: 28.6705, lng: 77.3450 }, demandQuantity: 0, accumulatedLoad: 200, etaMinutesFromStart: 42, distanceFromPrevKm: 8.5 },
-          ],
-          roadGeometry: {
-            coordinates: [
-              [77.3450, 28.6705],
-              [77.2900, 28.6600],
-              [77.2480, 28.6510],
-              [77.2750, 28.6250],
-              [77.3025, 28.6015],
-              [77.3450, 28.6705],
-            ],
-            distanceKm: 24.2,
-            durationMinutes: 42,
-            source: 'OSRM_LIVE',
-          },
-          explanation: [
-            'Dispatched from Ghaziabad Supply Hub carrying 200 units potable water.',
-            'Consolidated bulk delivery to Geeta Colony and Chilla Khadar.',
-            'High vehicle capacity utilization: 90.9%.',
-          ],
-        },
-      ],
-      metrics: {
-        totalDistanceKm: 42.6,
-        totalTravelTimeMinutes: 76.0,
-        vehiclesUsed: 2,
-        totalVehiclesAvailable: 4,
-        requestsServed: 4,
-        requestsUnfulfilled: 0,
-        criticalRequestsServed: 3,
-        totalResourceAllocated: 320,
-        optimizationTimeMs: 142,
-      },
-      comparison: {
-        baselineDistanceKm: 68.4,
-        optimizedDistanceKm: 42.6,
-        distanceSavedKm: 25.8,
-        distanceImprovementPct: 37.7,
-        baselineDurationMinutes: 135.0,
-        optimizedDurationMinutes: 76.0,
-        durationSavedMinutes: 59.0,
-        durationImprovementPct: 43.7,
-        baselineVehiclesNeeded: 4,
-        optimizedVehiclesNeeded: 2,
-        vehiclesSaved: 2,
-      },
-      reasoning: [],
-      timestamp: new Date().toISOString(),
-    };
-
-    setOptimizationData(fallback);
-  };
-
-  // Run on mount
-  useEffect(() => {
-    runOptimization();
-  }, []);
-
-  // Simulate Road Blockage
-  const handleToggleBlockage = async () => {
-    if (disruptionActive) {
-      setDisruptionActive(false);
-      setDisruptionInfo(null);
-      addToast('INFO', 'Road disruption cleared. Normal routing restored.');
-      runOptimization();
-      return;
-    }
-
-    try {
-      const resp = await fetch('http://localhost:4000/api/v1/simulate-blockage', {
+      const resp = await fetch('http://localhost:4000/api/v1/optimize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ disruptionId: 'DISRUPT-DEL-01' }),
+        body: JSON.stringify({
+          depots: activeDepots,
+          demands: activeDemands,
+          vehicles,
+          solverConfig: {
+            strategy: solverStrategy,
+            maxSolveTimeSeconds: maxSolveTime,
+            serviceTimeMinutesPerStop: serviceTimePerStop,
+            useOsrmRoadApi,
+          },
+        }),
       });
-      const data = await resp.json();
-      setDisruptionActive(true);
-      setDisruptionInfo(data);
 
-      setEventLogs(prev => [
-        {
-          time: new Date().toLocaleTimeString('en-US', { hour12: false }),
-          text: `ROUTE REPLANNED: Yamuna Old Iron Bridge Inundated. Detour via Ring Road Flyover applied (+${data.deltaMinutes} min, +${data.deltaKm} km).`,
-          type: 'ALERT',
-        },
-        ...prev,
-      ]);
+      if (!resp.ok) {
+        throw new Error(`API returned HTTP ${resp.status}`);
+      }
 
-      addToast('WARNING', `Route Disruption Detected: Detour Generated (+${data.deltaMinutes} min)`);
-    } catch (e) {
-      setDisruptionActive(true);
-      setDisruptionInfo({
-        deltaMinutes: 14,
-        deltaKm: 3.2,
-        disruption: { name: 'Yamuna Old Iron Bridge Submerged' },
-      });
-      addToast('WARNING', 'Simulated Route Disruption: Detour Applied (+14 min)');
+      setOptimizationStep('SYNTHESIZING OSRM ROAD NETWORK GEOMETRY...');
+      const result = await resp.json();
+      await new Promise(r => setTimeout(r, 300));
+
+      setOptimizationData(result);
+      setOptimizationStep('ROUTES FOUND');
+      addToast('SUCCESS', `Multi-Depot VRP Optimization Complete: ${result.routes?.length || 0} Routes Generated!`);
+    } catch (err: any) {
+      console.warn('[OPTIMIZER RUN ERROR]:', err);
+      addToast('ERROR', err.message || 'Route optimization failed.');
+    } finally {
+      setOptimizing(false);
+      setOptimizationStep('');
     }
   };
 
-  // Export Manifest
-  const handleExportManifest = () => {
-    if (!optimizationData) return;
-    const jsonStr = JSON.stringify(optimizationData, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `SAKSHAM_OPTIMIZED_MANIFEST_${Date.now()}.json`;
-    a.click();
-    addToast('SUCCESS', 'Operational Dispatch Manifest Exported!');
-  };
+  // Initial Run on Mount
+  useEffect(() => {
+    handleRunOptimization();
+  }, []);
 
-  // Initialize MapLibre GL Tactical Map
+  // Initialize MapLibre GL
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
     if (!mapRef.current) {
       const map = new maplibregl.Map({
         container: mapContainerRef.current,
-        style: 'https://demotiles.maplibre.org/style.json',
-        center: [77.2400, 28.6500],
-        zoom: 11.2,
-        pitch: 35,
-        bearing: -10,
+        style: MAP_STYLES.DARK,
+        center: [78.9629, 22.5937], // India Center
+        zoom: 4.4,
+        pitch: 25,
         attributionControl: false,
       });
 
@@ -288,7 +450,15 @@ export const LogisticsOptimizer: React.FC = () => {
     }
   }, []);
 
-  // Update Map Markers & Route Corridors on Data Change
+  // Handle Style Switcher
+  const handleStyleChange = (styleKey: 'DARK' | 'LIGHT' | 'OSM') => {
+    setActiveMapStyle(styleKey);
+    const map = mapRef.current;
+    if (!map) return;
+    map.setStyle(MAP_STYLES[styleKey]);
+  };
+
+  // Draw Route Geometries & Markers on Map
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -297,31 +467,33 @@ export const LogisticsOptimizer: React.FC = () => {
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
 
-    if (!optimizationData || !optimizationData.routes) return;
+    // Clear animated vehicle markers
+    animatedVehicleMarkersRef.current.forEach(m => m.remove());
+    animatedVehicleMarkersRef.current.clear();
 
-    const routes: any[] = optimizationData.routes;
-
-    // Filter routes by selected vehicle
+    const routes: any[] = optimizationData?.routes || [];
     const visibleRoutes = selectedVehicleId === 'ALL'
       ? routes
       : routes.filter(r => r.vehicleId === selectedVehicleId);
 
-    // 1. Draw GeoJSON Road Geometry Lines per vehicle
-    const updateRouteLayers = () => {
-      // Remove previous route layers
-      routes.forEach((r) => {
-        const sourceId = `route-opt-src-${r.vehicleId}`;
-        const layerId = `route-opt-layer-${r.vehicleId}`;
+    const renderLayers = () => {
+      // Clean up previous route layers
+      routes.forEach(r => {
+        const sourceId = `route-vrp-src-${r.vehicleId}`;
+        const layerId = `route-vrp-layer-${r.vehicleId}`;
+        const layerHaloId = `route-vrp-halo-${r.vehicleId}`;
+        if (map.getLayer(layerHaloId)) map.removeLayer(layerHaloId);
         if (map.getLayer(layerId)) map.removeLayer(layerId);
         if (map.getSource(sourceId)) map.removeSource(sourceId);
       });
 
-      visibleRoutes.forEach((r, idx) => {
-        const sourceId = `route-opt-src-${r.vehicleId}`;
-        const layerId = `route-opt-layer-${r.vehicleId}`;
-        const color = VEHICLE_COLORS[idx % VEHICLE_COLORS.length];
-
+      // Add route lines
+      visibleRoutes.forEach(r => {
+        const sourceId = `route-vrp-src-${r.vehicleId}`;
+        const layerId = `route-vrp-layer-${r.vehicleId}`;
+        const layerHaloId = `route-vrp-halo-${r.vehicleId}`;
         const rawCoords = r.roadGeometry?.coordinates || [];
+
         if (rawCoords.length > 0) {
           map.addSource(sourceId, {
             type: 'geojson',
@@ -335,6 +507,19 @@ export const LogisticsOptimizer: React.FC = () => {
             },
           });
 
+          // Route Halo glow
+          map.addLayer({
+            id: layerHaloId,
+            type: 'line',
+            source: sourceId,
+            paint: {
+              'line-color': r.color,
+              'line-width': 8,
+              'line-opacity': 0.25,
+            },
+          });
+
+          // Route Core line
           map.addLayer({
             id: layerId,
             type: 'line',
@@ -344,9 +529,9 @@ export const LogisticsOptimizer: React.FC = () => {
               'line-cap': 'round',
             },
             paint: {
-              'line-color': color,
-              'line-width': selectedVehicleId === r.vehicleId ? 5.5 : 3.5,
-              'line-opacity': 0.9,
+              'line-color': r.color,
+              'line-width': selectedVehicleId === r.vehicleId ? 4.5 : 3.2,
+              'line-opacity': 0.95,
             },
           });
         }
@@ -354,451 +539,705 @@ export const LogisticsOptimizer: React.FC = () => {
     };
 
     if (map.isStyleLoaded()) {
-      updateRouteLayers();
+      renderLayers();
     } else {
-      map.once('load', updateRouteLayers);
+      map.once('load', renderLayers);
     }
 
-    // 2. Add Stop Markers
-    visibleRoutes.forEach((r, vIdx) => {
-      const color = VEHICLE_COLORS[vIdx % VEHICLE_COLORS.length];
-      (r.stops || []).forEach((stop: any) => {
-        const el = document.createElement('div');
-        el.style.width = stop.nodeType === 'DEPOT' ? '18px' : '14px';
-        el.style.height = stop.nodeType === 'DEPOT' ? '18px' : '14px';
-        el.style.borderRadius = '50%';
-        el.style.backgroundColor = stop.nodeType === 'DEPOT' ? '#10B981' : stop.priority === 'CRITICAL' ? '#EF4444' : color;
-        el.style.border = '2px solid #FFFFFF';
-        el.style.boxShadow = `0 0 10px ${color}`;
-        el.style.cursor = 'pointer';
+    // ── ADD DEPOT MARKERS (D1, D2, D3, D4) ──
+    depots.forEach((d, idx) => {
+      const el = document.createElement('div');
+      el.style.width = '26px';
+      el.style.height = '26px';
+      el.style.borderRadius = '50%';
+      el.style.backgroundColor = '#10B981';
+      el.style.border = '2px solid #FFFFFF';
+      el.style.boxShadow = '0 0 14px rgba(16, 185, 129, 0.8)';
+      el.style.color = '#FFFFFF';
+      el.style.fontSize = '11px';
+      el.style.fontWeight = '800';
+      el.style.display = 'flex';
+      el.style.alignItems = 'center';
+      el.style.justifyContent = 'center';
+      el.style.cursor = 'pointer';
+      el.innerHTML = `D${idx + 1}`;
 
-        const popup = new maplibregl.Popup({ offset: 12 }).setHTML(`
-          <div style="font-family: sans-serif; font-size: 11px; color: #111827; padding: 4px;">
-            <strong style="color: ${color}">${stop.name}</strong><br/>
-            <span>Type: ${stop.nodeType}</span><br/>
-            ${stop.priority ? `<span>Priority: <b>${stop.priority}</b></span><br/>` : ''}
-            <span>ETA: <b>+${stop.etaMinutesFromStart} min</b></span>
-          </div>
-        `);
-
-        const marker = new maplibregl.Marker({ element: el })
-          .setLngLat([stop.location.lng, stop.location.lat])
-          .setPopup(popup)
-          .addTo(map);
-
-        markersRef.current.push(marker);
-      });
-    });
-
-    // 3. Add Disruption Marker if Active
-    if (disruptionActive) {
-      const disEl = document.createElement('div');
-      disEl.style.width = '24px';
-      disEl.style.height = '24px';
-      disEl.style.borderRadius = '50%';
-      disEl.style.backgroundColor = '#EF4444';
-      disEl.style.border = '3px solid #FFFFFF';
-      disEl.style.display = 'flex';
-      disEl.style.alignItems = 'center';
-      disEl.style.justifyContent = 'center';
-      disEl.style.color = '#FFF';
-      disEl.style.fontSize = '12px';
-      disEl.style.fontWeight = 'bold';
-      disEl.innerHTML = '!';
-
-      const disPopup = new maplibregl.Popup({ offset: 15 }).setHTML(`
+      const popup = new maplibregl.Popup({ offset: 14 }).setHTML(`
         <div style="font-family: sans-serif; font-size: 11px; color: #111827; padding: 4px;">
-          <strong style="color: #EF4444;">ROAD DISRUPTION</strong><br/>
-          <span>Yamuna Bridge Inundated</span><br/>
-          <span>Detour Active (+${disruptionInfo?.deltaMinutes || 14} min)</span>
+          <strong style="color: #059669;">[D${idx + 1}] ${d.name}</strong><br/>
+          <span>${d.locationName}</span><br/>
+          <span>Stationed Fleet: <b>${d.stationedVehicleCount} Vehicles</b></span><br/>
+          <span>Stock: <b>${d.availableQuantity.toLocaleString()} units</b></span>
         </div>
       `);
 
-      const disMarker = new maplibregl.Marker({ element: disEl })
-        .setLngLat([77.2340, 28.6635])
-        .setPopup(disPopup)
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([d.location.lng, d.location.lat])
+        .setPopup(popup)
         .addTo(map);
 
-      markersRef.current.push(disMarker);
-    }
-  }, [optimizationData, selectedVehicleId, disruptionActive, disruptionInfo]);
+      markersRef.current.push(marker);
+    });
 
+    // ── ADD DEMAND STOP MARKERS (1, 2, 3...) ──
+    visibleRoutes.forEach(r => {
+      let stopCounter = 1;
+      (r.stops || []).forEach((s: any) => {
+        if (s.nodeType === 'DEMAND') {
+          const el = document.createElement('div');
+          el.style.width = '22px';
+          el.style.height = '22px';
+          el.style.borderRadius = '50%';
+          el.style.backgroundColor = r.color;
+          el.style.border = '2px solid #FFFFFF';
+          el.style.boxShadow = `0 0 10px ${r.color}`;
+          el.style.color = '#FFFFFF';
+          el.style.fontSize = '10px';
+          el.style.fontWeight = '800';
+          el.style.display = 'flex';
+          el.style.alignItems = 'center';
+          el.style.justifyContent = 'center';
+          el.style.cursor = 'pointer';
+          el.innerHTML = `${stopCounter}`;
+
+          const popup = new maplibregl.Popup({ offset: 12 }).setHTML(`
+            <div style="font-family: sans-serif; font-size: 11px; color: #111827; padding: 4px;">
+              <strong style="color: ${r.color}">Stop #${stopCounter} · ${s.name}</strong><br/>
+              <span>Assigned Convoy: <b>${r.vehicleName}</b></span><br/>
+              <span>Delivery Load: <b>${s.demandQuantity.toLocaleString()} units</b></span><br/>
+              <span>Priority: <b style="color: #EF4444">${s.priority}</b></span><br/>
+              <span>ETA: <b>+${s.etaMinutesFromStart} min</b> (~${s.distanceFromPrevKm} km)</span>
+            </div>
+          `);
+
+          const marker = new maplibregl.Marker({ element: el })
+            .setLngLat([s.location.lng, s.location.lat])
+            .setPopup(popup)
+            .addTo(map);
+
+          markersRef.current.push(marker);
+          stopCounter++;
+        }
+      });
+    });
+
+    // Fit map bounds to show all active routes
+    if (visibleRoutes.length > 0) {
+      const allPts = visibleRoutes.flatMap(r => r.roadGeometry?.coordinates || []);
+      if (allPts.length > 1) {
+        const bounds = new maplibregl.LngLatBounds(allPts[0], allPts[0]);
+        allPts.forEach(pt => bounds.extend(pt));
+        map.fitBounds(bounds, { padding: 60, maxZoom: 12 });
+      }
+    }
+  }, [optimizationData, selectedVehicleId, depots, activeMapStyle]);
+
+  // ── ROUTE PLAYBACK ENGINE ──
+  const animatePlayback = useCallback(() => {
+    if (!isPlaying) return;
+
+    setPlaybackProgress(prev => {
+      const next = prev + 0.003 * playbackSpeed;
+      if (next >= 1) {
+        setIsPlaying(false);
+        addToast('INFO', 'Route Playback Complete: All Convoys Arrived at Destination.');
+        return 1;
+      }
+      return next;
+    });
+
+    animationFrameRef.current = requestAnimationFrame(animatePlayback);
+  }, [isPlaying, playbackSpeed, addToast]);
+
+  useEffect(() => {
+    if (isPlaying) {
+      animationFrameRef.current = requestAnimationFrame(animatePlayback);
+    } else if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    return () => {
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    };
+  }, [isPlaying, animatePlayback]);
+
+  // Update Animated Vehicle Position along OSRM Road Geometry
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !optimizationData?.routes) return;
+
+    const routes: any[] = optimizationData.routes;
+    const targetRoute = routes.find(r => r.vehicleId === playbackActiveVehicle) || routes[0];
+    if (!targetRoute) return;
+
+    const coords: [number, number][] = targetRoute.roadGeometry?.coordinates || [];
+    if (coords.length < 2) return;
+
+    const targetIdx = Math.floor(playbackProgress * (coords.length - 1));
+    const currentCoord = coords[targetIdx] || coords[0];
+
+    let vehMarker = animatedVehicleMarkersRef.current.get(targetRoute.vehicleId);
+    if (!vehMarker) {
+      const el = document.createElement('div');
+      el.style.width = '32px';
+      el.style.height = '32px';
+      el.style.borderRadius = '50%';
+      el.style.backgroundColor = targetRoute.color;
+      el.style.border = '3px solid #FFFFFF';
+      el.style.boxShadow = `0 0 16px ${targetRoute.color}`;
+      el.style.display = 'flex';
+      el.style.alignItems = 'center';
+      el.style.justifyContent = 'center';
+      el.style.color = '#FFF';
+      el.innerHTML = '🚚';
+
+      vehMarker = new maplibregl.Marker({ element: el })
+        .setLngLat(currentCoord)
+        .addTo(map);
+
+      animatedVehicleMarkersRef.current.set(targetRoute.vehicleId, vehMarker);
+    } else {
+      vehMarker.setLngLat(currentCoord);
+    }
+  }, [playbackProgress, playbackActiveVehicle, optimizationData]);
+
+  // Reset Playback
+  const handleResetPlayback = () => {
+    setIsPlaying(false);
+    setPlaybackProgress(0);
+  };
+
+  // Authorize & Dispatch Fleet to Global Context
+  const handleConfirmDispatch = () => {
+    if (!optimizationData?.routes) return;
+
+    const newMissions = optimizationData.routes.map((r: any, idx: number) => ({
+      id: `DSP-OPT-${idx + 101}`,
+      requestId: r.stops.find((s: any) => s.nodeType === 'DEMAND')?.nodeId || 'DEM-001',
+      vehicleId: r.vehicleId,
+      status: 'ASSIGNED' as const,
+      destinationName: r.stops.find((s: any) => s.nodeType === 'DEMAND')?.name || 'Relief Target',
+      resourceType: 'Emergency Disaster Cargo',
+      quantity: r.totalLoadDelivered,
+      unit: 'Units',
+      etaMinutes: r.totalDurationMinutes,
+      operatorName: r.driverName,
+      speedKmh: 45,
+      distanceKm: r.totalDistanceKm,
+      signalStrength: 98,
+      fuelPct: 92,
+      trafficLevel: 'CLEAR' as const,
+      routePath: r.stops.map((s: any) => s.name),
+      timeline: [
+        {
+          time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+          title: 'OPTIMIZATION DISPATCH AUTHORIZED',
+          done: true,
+        },
+      ],
+    }));
+
+    setMissions(prev => [...newMissions, ...prev]);
+    setVehicles(prev =>
+      prev.map(v => {
+        const assignedRoute = optimizationData.routes.find((r: any) => r.vehicleId === v.id);
+        if (assignedRoute) {
+          return {
+            ...v,
+            status: 'ASSIGNED',
+            cargo: `${assignedRoute.totalLoadDelivered.toLocaleString()} Units Cargo`,
+          };
+        }
+        return v;
+      })
+    );
+
+    setShowDispatchModal(false);
+    addToast('SUCCESS', 'Fleet Successfully Dispatched! Viewing Dispatch Console...');
+    navigate('/operations/dispatch');
+  };
+
+  // Export JSON
+  const handleExportJson = () => {
+    if (!optimizationData) return;
+    const blob = new Blob([JSON.stringify(optimizationData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SAKSHAM_ORTOOLS_VRP_PLAN_${Date.now()}.json`;
+    a.click();
+    addToast('SUCCESS', 'VRP Optimization Manifest (JSON) Exported!');
+  };
+
+  // Export CSV
+  const handleExportCsv = () => {
+    if (!optimizationData?.routes) return;
+    const headers = ['Vehicle,Depot,Stop_Number,Demand_Name,Quantity,ETA_Min,Distance_Km,Priority,Status'];
+    const rows = optimizationData.routes.flatMap((r: any) =>
+      r.stops.map((s: any, idx: number) =>
+        `"${r.vehicleName}","${r.depotName}",${idx},"${s.name}",${s.demandQuantity},${s.etaMinutesFromStart},${s.distanceFromPrevKm},"${s.priority || 'DEPOT'}","${r.status}"`
+      )
+    );
+    const csvContent = [headers, ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SAKSHAM_ROUTE_ITINERARY_${Date.now()}.csv`;
+    a.click();
+    addToast('SUCCESS', 'Route Itineraries (CSV) Exported!');
+  };
+
+  // Print Dispatch Sheet
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const selectedDepotsCount = depots.filter(d => d.selected).length;
+  const selectedDemandsCount = demands.filter(d => d.selected).length;
+  const routes = optimizationData?.routes || [];
   const metrics = optimizationData?.metrics;
   const comparison = optimizationData?.comparison;
-  const routes = optimizationData?.routes || [];
 
   return (
     <div className={`${styles.container} ${mounted ? styles.mounted : ''}`}>
-      {/* ── TOP HEADER & CONTROLS ── */}
-      <header className={styles.topHeader}>
-        <div className={styles.titleGroup}>
-          <div className={styles.eyebrow}>
-            <Radio size={13} className="text-blue-500 animate-pulse" />
-            <span>SAKSHAM LOGISTICS COMMAND &amp; FLEET OPTIMIZER</span>
-          </div>
-          <h1 className={styles.mainTitle}>
-            <span>Automated Multi-Vehicle Route Optimization</span>
-          </h1>
-          <div className={styles.engineBadges}>
-            <span className={styles.badgeOsrm}>
-              <Compass size={11} />
-              <span>ROUTING: {routes[0]?.routingSource === 'OSRM_LIVE' ? 'OSRM ROAD NETWORK LIVE' : 'SIMULATION FALLBACK'}</span>
+      {/* ── TOP SUB-NAVIGATION BAR ── */}
+      <nav className={styles.subNavBar}>
+        <div className={styles.navPills}>
+          <Link to="/operations/command-center" className={styles.navPill}>
+            COMMAND CENTER
+          </Link>
+          <Link to="/operations/matching" className={styles.navPill}>
+            DEMAND MATCHING
+          </Link>
+          <Link to="/operations/optimizer" className={`${styles.navPill} ${styles.navPillActive}`}>
+            ROUTE OPTIMIZER
+          </Link>
+          <Link to="/operations/dispatch" className={styles.navPill}>
+            DISPATCH CONSOLE
+          </Link>
+          <Link to="/operations/delivery" className={styles.navPill}>
+            DELIVERY VERIFICATION
+          </Link>
+        </div>
+
+        {/* Dynamic Top KPIs */}
+        <div className={styles.topKpiRow}>
+          <div className={styles.kpiPill}>
+            <span className={styles.kpiPillLabel}>STATUS</span>
+            <span className={styles.kpiPillValue} style={{ color: '#10B981' }}>
+              {optimizing ? 'OPTIMIZING...' : 'ROUTES_FOUND'}
             </span>
-            <span className={styles.badgeOrtools}>
-              <Zap size={11} />
-              <span>OPTIMIZER: GOOGLE OR-TOOLS (CAPACITATED VRP)</span>
-            </span>
-            {metrics && (
-              <span className={styles.badgeOsrm} style={{ background: 'rgba(255,255,255,0.06)', color: '#D1D5DB', borderColor: 'rgba(255,255,255,0.15)' }}>
-                <span>{metrics.requestsServed} Served · {metrics.totalDistanceKm} km · {metrics.active_vehicles || metrics.vehiclesUsed || 4} Vehicles Active</span>
+          </div>
+          <div className={styles.kpiPill}>
+            <span className={styles.kpiPillLabel}>VEHICLES USED</span>
+            <span className={styles.kpiPillValue}>{metrics?.vehiclesUsed || routes.length}</span>
+          </div>
+          <div className={styles.kpiPill}>
+            <span className={styles.kpiPillLabel}>TOTAL STOPS</span>
+            <span className={styles.kpiPillValue}>{metrics?.requestsServed || selectedDemandsCount}</span>
+          </div>
+          <div className={styles.kpiPill}>
+            <span className={styles.kpiPillLabel}>TOTAL DISTANCE</span>
+            <span className={styles.kpiPillValue}>{metrics?.totalDistanceKm || 0} km</span>
+          </div>
+          {comparison && (
+            <div className={styles.kpiPill}>
+              <span className={styles.kpiPillLabel}>TIME SAVED</span>
+              <span className={styles.kpiPillValue} style={{ color: '#34D399' }}>
+                -{comparison.durationImprovementPct}%
               </span>
-            )}
-            {disruptionActive && (
-              <span className={styles.badgeDisruption}>
-                <AlertTriangle size={11} />
-                <span>ACTIVE DISRUPTION: YAMUNA BRIDGE DETOUR</span>
+            </div>
+          )}
+        </div>
+      </nav>
+
+      {/* ── 2-COLUMN OPERATIONAL LAYOUT ── */}
+      <div className={styles.mainLayout}>
+        {/* ── LEFT COLUMN: CONFIGURATION PANEL ── */}
+        <aside className={styles.configPanel}>
+          {/* 1. RESOURCE DEPOTS */}
+          <div className={styles.configCard}>
+            <div className={styles.configCardHeader}>
+              <h3 className={styles.configCardTitle}>
+                <Shield size={14} className="text-emerald-400" />
+                <span>1. Resource Depots</span>
+              </h3>
+              <span className={styles.counterBadge}>
+                {selectedDepotsCount}/{depots.length} Active
               </span>
-            )}
+            </div>
+            <div className={styles.itemsList}>
+              {depots.map(d => (
+                <div
+                  key={d.id}
+                  className={`${styles.selectableItem} ${d.selected ? styles.selectableItemActive : ''}`}
+                  onClick={() => handleToggleDepot(d.id)}
+                >
+                  <input
+                    type="checkbox"
+                    checked={d.selected}
+                    onChange={() => {}}
+                    className={styles.checkboxInput}
+                  />
+                  <div className={styles.itemContent}>
+                    <h4 className={styles.itemTitle}>{d.name}</h4>
+                    <span className={styles.itemSubtitle}>{d.locationName}</span>
+                    <div className={styles.itemMeta}>
+                      <span style={{ color: '#10B981' }}>{d.stationedVehicleCount} Vehicles stationed</span>
+                      <span style={{ color: '#9CA3AF' }}>{d.availableQuantity.toLocaleString()} u stock</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className={styles.actionControls}>
-          <button
-            className={styles.btnPrimary}
-            onClick={() => runOptimization(false)}
-            disabled={optimizing}
-          >
-            <Zap size={14} />
-            <span>{optimizing ? 'OPTIMIZING ROUTES...' : 'OPTIMIZE ROUTES'}</span>
-          </button>
-
-          <button
-            className={styles.btnSecondary}
-            onClick={() => runOptimization(true, true)}
-            title="Inject a high-priority emergency demand and trigger instant live re-routing"
-            disabled={optimizing}
-          >
-            <Flame size={13} className="text-red-400" />
-            <span>+ CRITICAL SURGE</span>
-          </button>
-
-          <button
-            className={disruptionActive ? styles.btnDanger : styles.btnSecondary}
-            onClick={handleToggleBlockage}
-            title="Simulate floodwater bridge inundation and evaluate detour"
-          >
-            <AlertTriangle size={13} />
-            <span>{disruptionActive ? 'CLEAR DISRUPTION' : 'SIMULATE ROAD BLOCK'}</span>
-          </button>
-
-          <button
-            className={styles.btnSecondary}
-            onClick={handleExportManifest}
-            title="Download full operational mission JSON manifest"
-          >
-            <Download size={13} />
-            <span>EXPORT MANIFEST</span>
-          </button>
-        </div>
-      </header>
-
-      {/* ── 3-COLUMN WORKSPACE GRID ── */}
-      <div className={styles.workspaceGrid}>
-        {/* ── COLUMN 1: DEPOTS & DEMANDS ── */}
-        <div className={styles.panelColumn}>
-          {/* Resource Depots */}
-          <div className={styles.panelCard}>
-            <div className={styles.panelHeader}>
-              <h3 className={styles.panelTitle}>
-                <Shield size={13} />
-                <span>Resource Depots</span>
+          {/* 2. DEMAND TARGET POINTS */}
+          <div className={styles.configCard}>
+            <div className={styles.configCardHeader}>
+              <h3 className={styles.configCardTitle}>
+                <MapPin size={14} className="text-blue-400" />
+                <span>2. Demand Target Points</span>
               </h3>
-              <span className={styles.panelBadge}>4 Depots</span>
+              <span className={styles.counterBadge}>
+                {selectedDemandsCount}/{demands.length} Selected
+              </span>
             </div>
-            <div className={styles.panelList}>
-              <div
-                className={`${styles.depotItem} ${selectedDepotId === 'DEPOT-DEL-01' ? styles.depotItemActive : ''}`}
-                onClick={() => {
-                  setSelectedDepotId('DEPOT-DEL-01');
-                  mapRef.current?.flyTo({ center: [77.2215, 28.6755], zoom: 13 });
-                }}
-              >
-                <div className={styles.depotTop}>
-                  <h4 className={styles.depotName}>Delhi Central Relief Hub</h4>
-                  <span className={styles.depotCategory}>MEDICAL · WATER</span>
+            <div className={styles.itemsList}>
+              {demands.map(d => (
+                <div
+                  key={d.id}
+                  className={`${styles.selectableItem} ${d.selected ? styles.selectableItemActive : ''}`}
+                  onClick={() => handleToggleDemand(d.id)}
+                >
+                  <input
+                    type="checkbox"
+                    checked={d.selected}
+                    onChange={() => {}}
+                    className={styles.checkboxInput}
+                  />
+                  <div className={styles.itemContent}>
+                    <h4 className={styles.itemTitle}>{d.title}</h4>
+                    <span className={styles.itemSubtitle}>{d.locationName}</span>
+                    <div className={styles.itemMeta}>
+                      <span style={{ color: '#F3F4F6' }}>{d.quantity.toLocaleString()} units load</span>
+                      <span
+                        className={`${styles.prioPill} ${
+                          d.priority === 'CRITICAL'
+                            ? styles.prioPillCritical
+                            : d.priority === 'HIGH'
+                            ? styles.prioPillHigh
+                            : styles.prioPillMedium
+                        }`}
+                      >
+                        {d.priority}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className={styles.depotLoc}>Civil Lines, North Delhi</div>
-                <div className={styles.depotStockBar}>
-                  <span>Stock: 500 units</span>
-                  <span>Allocated: 120 units</span>
-                </div>
-              </div>
-
-              <div
-                className={`${styles.depotItem} ${selectedDepotId === 'DEPOT-DEL-02' ? styles.depotItemActive : ''}`}
-                onClick={() => {
-                  setSelectedDepotId('DEPOT-DEL-02');
-                  mapRef.current?.flyTo({ center: [77.3450, 28.6705], zoom: 13 });
-                }}
-              >
-                <div className={styles.depotTop}>
-                  <h4 className={styles.depotName}>Ghaziabad Supply Hub</h4>
-                  <span className={styles.depotCategory}>WATER · FOOD</span>
-                </div>
-                <div className={styles.depotLoc}>Sahibabad Industrial Area</div>
-                <div className={styles.depotStockBar}>
-                  <span>Stock: 800 units</span>
-                  <span>Allocated: 200 units</span>
-                </div>
-              </div>
-
-              <div
-                className={`${styles.depotItem} ${selectedDepotId === 'DEPOT-DEL-04' ? styles.depotItemActive : ''}`}
-                onClick={() => {
-                  setSelectedDepotId('DEPOT-DEL-04');
-                  mapRef.current?.flyTo({ center: [77.3649, 28.6280], zoom: 13 });
-                }}
-              >
-                <div className={styles.depotTop}>
-                  <h4 className={styles.depotName}>Noida Advanced Depot</h4>
-                  <span className={styles.depotCategory}>MEDICAL · RESCUE</span>
-                </div>
-                <div className={styles.depotLoc}>Sector 62, Noida</div>
-                <div className={styles.depotStockBar}>
-                  <span>Stock: 400 units</span>
-                  <span>Allocated: 60 units</span>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
-          {/* Demand Target Points */}
-          <div className={styles.panelCard} style={{ flex: 1 }}>
-            <div className={styles.panelHeader}>
-              <h3 className={styles.panelTitle}>
-                <MapPin size={13} />
-                <span>Demand Target Points</span>
+          {/* 3. OR-TOOLS SOLVER CONFIG */}
+          <div className={styles.configCard}>
+            <div className={styles.configCardHeader}>
+              <h3 className={styles.configCardTitle}>
+                <Sliders size={14} className="text-amber-400" />
+                <span>3. OR-Tools Solver Config</span>
               </h3>
-              <span className={styles.panelBadge}>10 Requests</span>
             </div>
-            <div className={styles.panelList}>
-              <div className={`${styles.demandItem} ${styles.demandItemCritical}`}>
-                <div className={styles.demandHeader}>
-                  <span className={styles.demandId}>REQ-101 · SECTOR 4</span>
-                  <span className={`${styles.prioBadge} ${styles.prioCritical}`}>CRITICAL</span>
-                </div>
-                <h4 className={styles.demandTitle}>Yamuna Khadar Relief Camp</h4>
-                <div className={styles.demandMeta}>
-                  <span>40 Trauma Kits</span>
-                  <span style={{ color: '#10B981', fontWeight: 700 }}>V-01 (ETA: 12m)</span>
-                </div>
+            <div className={styles.solverConfigBody}>
+              {/* Strategy Dropdown */}
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>First Solution Strategy</label>
+                <select
+                  className={styles.formSelect}
+                  value={solverStrategy}
+                  onChange={e => setSolverStrategy(e.target.value)}
+                >
+                  <option value="PATH_CHEAPEST_ARC">PATH CHEAPEST ARC</option>
+                  <option value="PARALLEL_CHEAPEST_INSERTION">PARALLEL CHEAPEST INSERTION</option>
+                  <option value="SAVINGS">SAVINGS (CLARKE-WRIGHT)</option>
+                  <option value="CHRISTOFIDES">CHRISTOFIDES</option>
+                  <option value="LOCAL_CHEAPEST_INSERTION">LOCAL CHEAPEST INSERTION</option>
+                </select>
               </div>
 
-              <div className={`${styles.demandItem} ${styles.demandItemCritical}`}>
-                <div className={styles.demandHeader}>
-                  <span className={styles.demandId}>REQ-102 · SECTOR 3</span>
-                  <span className={`${styles.prioBadge} ${styles.prioCritical}`}>CRITICAL</span>
+              {/* Max Solve Time */}
+              <div className={styles.formGroup}>
+                <div className={styles.formLabel}>
+                  <span>Max Solve Time</span>
+                  <span style={{ color: '#F3F4F6' }}>{maxSolveTime} seconds</span>
                 </div>
-                <h4 className={styles.demandTitle}>Geeta Colony Inundated Sector</h4>
-                <div className={styles.demandMeta}>
-                  <span>120 Water Cans</span>
-                  <span style={{ color: '#10B981', fontWeight: 700 }}>V-03 (ETA: 18m)</span>
-                </div>
+                <input
+                  type="range"
+                  min="3"
+                  max="30"
+                  value={maxSolveTime}
+                  onChange={e => setMaxSolveTime(Number(e.target.value))}
+                  className={styles.formSlider}
+                />
               </div>
 
-              <div className={`${styles.demandItem} ${styles.demandItemCritical}`}>
-                <div className={styles.demandHeader}>
-                  <span className={styles.demandId}>REQ-104 · SECTOR 1</span>
-                  <span className={`${styles.prioBadge} ${styles.prioCritical}`}>CRITICAL</span>
+              {/* Service Time per Stop */}
+              <div className={styles.formGroup}>
+                <div className={styles.formLabel}>
+                  <span>Service Time Per Stop</span>
+                  <span style={{ color: '#F3F4F6' }}>{serviceTimePerStop} min</span>
                 </div>
-                <h4 className={styles.demandTitle}>Majnu Ka Tilla Relief Camp</h4>
-                <div className={styles.demandMeta}>
-                  <span>35 Anti-Venom Kits</span>
-                  <span style={{ color: '#10B981', fontWeight: 700 }}>V-01 (ETA: 22m)</span>
-                </div>
+                <input
+                  type="range"
+                  min="5"
+                  max="30"
+                  value={serviceTimePerStop}
+                  onChange={e => setServiceTimePerStop(Number(e.target.value))}
+                  className={styles.formSlider}
+                />
               </div>
 
-              <div className={`${styles.demandItem} ${styles.demandItemHigh}`}>
-                <div className={styles.demandHeader}>
-                  <span className={styles.demandId}>REQ-105 · SECTOR 7</span>
-                  <span className={`${styles.prioBadge} ${styles.prioHigh}`}>HIGH</span>
+              {/* OSRM Road API Checkbox */}
+              <label className={styles.checkboxToggleRow}>
+                <input
+                  type="checkbox"
+                  checked={useOsrmRoadApi}
+                  onChange={e => setUseOsrmRoadApi(e.target.checked)}
+                  className={styles.checkboxInput}
+                />
+                <div>
+                  <span>OpenStreetMap (OSRM) Road API</span>
+                  <div style={{ fontSize: '10px', color: '#6B7280' }}>
+                    Real road turns and travel durations
+                  </div>
                 </div>
-                <h4 className={styles.demandTitle}>Chilla Khadar Inundation Point</h4>
-                <div className={styles.demandMeta}>
-                  <span>80 Water Packs</span>
-                  <span style={{ color: '#10B981', fontWeight: 700 }}>V-03 (ETA: 31m)</span>
-                </div>
-              </div>
+              </label>
+
+              {/* Run Optimization Action */}
+              <button
+                className={styles.btnRunOptimization}
+                onClick={handleRunOptimization}
+                disabled={optimizing}
+              >
+                <Zap size={15} />
+                <span>
+                  {optimizing
+                    ? optimizationStep || 'OPTIMIZING...'
+                    : 'RUN MULTI-DEPOT OPTIMIZATION'}
+                </span>
+              </button>
             </div>
           </div>
-        </div>
+        </aside>
 
-        {/* ── COLUMN 2: CENTER TACTICAL MAP ── */}
-        <div className={styles.mapCenterColumn}>
-          <div className={styles.mapCardWrapper}>
-            {/* Floating Map Controls */}
-            <div className={styles.mapFloatingOverlay}>
-              <select
-                className={styles.fleetFilterSelector}
-                value={selectedVehicleId}
-                onChange={(e) => setSelectedVehicleId(e.target.value)}
-              >
-                <option value="ALL">🔍 ALL FLEET VEHICLES &amp; ROUTES</option>
+        {/* ── RIGHT COLUMN: MAP, PLAYBACK & ITINERARIES ── */}
+        <main className={styles.rightColumn}>
+          {/* Map Container */}
+          <div className={styles.mapWrapper}>
+            {/* Top-Left Style Controls */}
+            <div className={styles.mapTopLeftControls}>
+              <div className={styles.styleToggleGroup}>
+                <button
+                  className={`${styles.styleBtn} ${activeMapStyle === 'DARK' ? styles.styleBtnActive : ''}`}
+                  onClick={() => handleStyleChange('DARK')}
+                >
+                  DARK
+                </button>
+                <button
+                  className={`${styles.styleBtn} ${activeMapStyle === 'LIGHT' ? styles.styleBtnActive : ''}`}
+                  onClick={() => handleStyleChange('LIGHT')}
+                >
+                  LIGHT
+                </button>
+                <button
+                  className={`${styles.styleBtn} ${activeMapStyle === 'OSM' ? styles.styleBtnActive : ''}`}
+                  onClick={() => handleStyleChange('OSM')}
+                >
+                  OSM
+                </button>
+              </div>
+            </div>
+
+            {/* Active Vehicle Routes Legend (Top-Right) */}
+            {routes.length > 0 && (
+              <div className={styles.routesLegend}>
+                <h4 className={styles.legendTitle}>ACTIVE VEHICLE ROUTES ({routes.length})</h4>
                 {routes.map((r: any) => (
-                  <option key={r.vehicleId} value={r.vehicleId}>
-                    🚚 {r.vehicleName} ({r.totalDistanceKm} km · {r.totalDurationMinutes} min)
-                  </option>
-                ))}
-              </select>
-
-              {disruptionActive && (
-                <div className={styles.disruptionAlertBanner}>
-                  <AlertTriangle size={15} />
-                  <span>Yamuna Old Iron Bridge Blocked · Detour Active (+{disruptionInfo?.deltaMinutes || 14}m)</span>
-                </div>
-              )}
-            </div>
-
-            {/* Map Container */}
-            <div ref={mapContainerRef} style={{ width: '100%', height: '100%', minHeight: '480px' }} />
-          </div>
-
-          {/* Operational Event Feed */}
-          {eventLogs.length > 0 && (
-            <div className={styles.panelCard} style={{ maxHeight: '110px', overflowY: 'auto', padding: '8px 12px' }}>
-              <div style={{ fontSize: '11px', color: '#9CA3AF', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {eventLogs.slice(0, 3).map((log, idx) => (
-                  <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <span style={{ color: log.type === 'ALERT' ? '#F87171' : '#34D399', fontWeight: 700 }}>
-                      [{log.time}]
-                    </span>
-                    <span style={{ color: '#E5E7EB' }}>{log.text}</span>
+                  <div
+                    key={r.vehicleId}
+                    className={styles.legendRow}
+                    style={{
+                      opacity: selectedVehicleId === 'ALL' || selectedVehicleId === r.vehicleId ? 1 : 0.4,
+                    }}
+                    onClick={() => {
+                      setSelectedVehicleId(selectedVehicleId === r.vehicleId ? 'ALL' : r.vehicleId);
+                      setPlaybackActiveVehicle(r.vehicleId);
+                    }}
+                  >
+                    <span className={styles.legendDot} style={{ backgroundColor: r.color }} />
+                    <span style={{ fontWeight: 600 }}>{r.vehicleName}</span>
+                    <span style={{ color: '#9CA3AF', marginLeft: 'auto' }}>{r.totalDistanceKm} km</span>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
+            )}
 
-        {/* ── COLUMN 3: ROUTE CARDS & OPTIMIZATION RESULTS ── */}
-        <div className={styles.panelColumn}>
-          {/* Optimization Results & Before vs After Comparison */}
-          {comparison && (
-            <div className={styles.comparisonBox}>
-              <div className={styles.compHeader}>
-                <h4 className={styles.compTitle}>Optimization Impact</h4>
-                <span className={styles.compImprovement}>-{comparison.distanceImprovementPct}% Dist</span>
+            {/* Map Canvas */}
+            <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+
+            {/* Floating Playback Controls Bar */}
+            {routes.length > 0 && (
+              <div className={styles.playbackBar}>
+                <button
+                  className={styles.playbackBtn}
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  title={isPlaying ? 'Pause simulation' : 'Play convoy route simulation'}
+                >
+                  {isPlaying ? <Pause size={16} /> : <Play size={16} style={{ marginLeft: '2px' }} />}
+                </button>
+
+                <button
+                  className={`${styles.playbackBtn} ${styles.playbackBtnReset}`}
+                  onClick={handleResetPlayback}
+                  title="Reset vehicle positions to start depot"
+                >
+                  <RotateCcw size={14} />
+                </button>
+
+                {/* Speed Multiplier */}
+                <div className={styles.speedSelector}>
+                  {[0.5, 1, 2, 4].map(spd => (
+                    <button
+                      key={spd}
+                      className={`${styles.speedBtn} ${playbackSpeed === spd ? styles.speedBtnActive : ''}`}
+                      onClick={() => setPlaybackSpeed(spd)}
+                    >
+                      {spd}x
+                    </button>
+                  ))}
+                </div>
+
+                {/* Telemetry HUD */}
+                <div className={styles.playbackTelemetry}>
+                  <Truck size={14} style={{ color: routes[0]?.color }} />
+                  <span>
+                    {isPlaying ? 'EN ROUTE' : playbackProgress >= 1 ? 'ARRIVED' : 'STANDBY'} ·{' '}
+                    {Math.round(playbackProgress * 100)}%
+                  </span>
+                </div>
               </div>
+            )}
+          </div>
 
-              <div className={styles.compRow}>
-                <span>Baseline Road Distance:</span>
-                <span className={styles.compValue}>{comparison.baselineDistanceKm} km</span>
-              </div>
-
-              <div className={styles.compRow}>
-                <span>OR-Tools Optimized Distance:</span>
-                <span className={styles.compValue} style={{ color: '#34D399' }}>
-                  {comparison.optimizedDistanceKm} km (-{comparison.distanceSavedKm} km)
-                </span>
-              </div>
-
-              <div className={styles.compRow}>
-                <span>Total Travel Time Saved:</span>
-                <span className={styles.compValue} style={{ color: '#38BDF8' }}>
-                  {comparison.durationSavedMinutes} min ({comparison.durationImprovementPct}% faster)
-                </span>
-              </div>
-
-              <div className={styles.compRow}>
-                <span>Critical Demands Fulfilled:</span>
-                <span className={styles.compValue} style={{ color: '#F87171' }}>100% (High Priority First)</span>
-              </div>
-            </div>
-          )}
-
-          {/* Vehicle Route Cards */}
-          <div className={styles.panelCard} style={{ flex: 1 }}>
-            <div className={styles.panelHeader}>
-              <h3 className={styles.panelTitle}>
-                <Truck size={13} />
-                <span>Optimized Vehicle Routes</span>
+          {/* ── ITINERARIES, WAYPOINTS & ACTIONS ── */}
+          <section className={styles.itinerariesSection}>
+            <div className={styles.itinerariesHeader}>
+              <h3 className={styles.itinerariesTitle}>
+                <CheckCircle2 size={16} className="text-emerald-400" />
+                <span>Optimization Solution Ready: {routes.length} Vehicle Itineraries Generated</span>
               </h3>
-              <span className={styles.panelBadge}>{routes.length} Active</span>
+
+              <div className={styles.itinerariesActions}>
+                <button className={styles.btnAction} onClick={handleExportJson} title="Export JSON Manifest">
+                  <FileText size={12} />
+                  <span>EXPORT JSON</span>
+                </button>
+
+                <button className={styles.btnAction} onClick={handleExportCsv} title="Export CSV Data">
+                  <FileSpreadsheet size={12} />
+                  <span>EXPORT CSV</span>
+                </button>
+
+                <button className={styles.btnAction} onClick={handlePrint} title="Print Itinerary Sheet">
+                  <Printer size={12} />
+                  <span>PRINT</span>
+                </button>
+
+                <button
+                  className={styles.btnDispatchFleet}
+                  onClick={() => setShowDispatchModal(true)}
+                  title="Authorize missions and send to Dispatch Console"
+                >
+                  <Send size={13} />
+                  <span>AUTHORIZE &amp; DISPATCH FLEET</span>
+                </button>
+              </div>
             </div>
 
-            <div className={styles.panelList}>
-              {routes.map((r: any, idx: number) => {
-                const color = VEHICLE_COLORS[idx % VEHICLE_COLORS.length];
-                const isSelected = selectedVehicleId === r.vehicleId;
+            {/* Vehicle Route Cards Grid */}
+            <div className={styles.routesGrid}>
+              {routes.map((r: any) => {
+                const isWaypointsOpen = expandedWaypointVehicleId === r.vehicleId;
+                const demandStops = (r.stops || []).filter((s: any) => s.nodeType === 'DEMAND');
 
                 return (
-                  <div
-                    key={r.vehicleId}
-                    className={styles.routeCardItem}
-                    style={{
-                      borderLeft: `3px solid ${color}`,
-                      backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.08)' : undefined,
-                    }}
-                    onClick={() => setSelectedVehicleId(isSelected ? 'ALL' : r.vehicleId)}
-                  >
-                    <div className={styles.routeCardHeader}>
+                  <div key={r.vehicleId} className={styles.routeCard} style={{ borderLeft: `3px solid ${r.color}` }}>
+                    <div className={styles.routeCardTop}>
                       <div>
-                        <h4 className={styles.routeVehName}>{r.vehicleName}</h4>
-                        <div className={styles.routeDriver}>Driver: {r.driverName}</div>
+                        <h4 className={styles.routeCardName}>{r.vehicleName}</h4>
+                        <div className={styles.routeCardDepot}>Origin: {r.depotName}</div>
                       </div>
-                      <span className={styles.routeStatusBadge}>{r.status}</span>
+                      <span style={{ fontSize: '10px', fontWeight: 800, color: r.color }}>
+                        {r.status}
+                      </span>
                     </div>
 
-                    {/* Stops Sequence */}
-                    <div className={styles.routeStopsSequence}>
-                      {(r.stops || []).map((s: any, sIdx: number) => (
-                        <div key={sIdx} className={styles.routeStopRow}>
-                          <span
-                            className={`${styles.stopDot} ${
-                              s.nodeType === 'DEPOT'
-                                ? styles.stopDotDepot
-                                : s.priority === 'CRITICAL'
-                                ? styles.stopDotCritical
-                                : ''
-                            }`}
-                          />
-                          <span style={{ fontWeight: s.nodeType === 'DEPOT' ? 700 : 500 }}>
-                            {s.name}
-                          </span>
-                          {s.etaMinutesFromStart > 0 && (
-                            <span style={{ color: '#6B7280', marginLeft: 'auto' }}>
-                              +{s.etaMinutesFromStart}m
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Metrics Grid */}
-                    <div className={styles.routeMetricsGrid}>
-                      <div className={styles.routeMetricCell}>
-                        <span className={styles.metricCellLabel}>Distance</span>
-                        <span className={styles.metricCellValue}>{r.totalDistanceKm} km</span>
+                    {/* Stats */}
+                    <div className={styles.routeCardStats}>
+                      <div className={styles.statCell}>
+                        <span className={styles.statCellLabel}>Distance</span>
+                        <span className={styles.statCellValue}>{r.totalDistanceKm} km</span>
                       </div>
-                      <div className={styles.routeMetricCell}>
-                        <span className={styles.metricCellLabel}>ETA</span>
-                        <span className={styles.metricCellValue}>{r.totalDurationMinutes} min</span>
+                      <div className={styles.statCell}>
+                        <span className={styles.statCellLabel}>Est. Time</span>
+                        <span className={styles.statCellValue}>~{r.totalDurationMinutes} min</span>
                       </div>
-                      <div className={styles.routeMetricCell}>
-                        <span className={styles.metricCellLabel}>Payload</span>
-                        <span className={styles.metricCellValue}>
-                          {r.totalLoadDelivered} / {r.vehicleCapacity}
+                      <div className={styles.statCell}>
+                        <span className={styles.statCellLabel}>Load Carried</span>
+                        <span className={styles.statCellValue}>
+                          {r.totalLoadDelivered} / {r.vehicleCapacity} u
                         </span>
                       </div>
                     </div>
 
-                    {/* Explanation Checklist */}
-                    {r.explanation && r.explanation.length > 0 && (
-                      <div className={styles.reasoningChecklist}>
-                        {r.explanation.map((pt: string, pIdx: number) => (
-                          <div key={pIdx} className={styles.reasoningItem}>
-                            <CheckCircle2 size={12} />
-                            <span>{pt}</span>
+                    {/* Stops List */}
+                    <div className={styles.stopsList}>
+                      {demandStops.map((s: any, sIdx: number) => (
+                        <div key={sIdx} className={styles.stopRow}>
+                          <span className={styles.stopNumberBadge} style={{ backgroundColor: r.color }}>
+                            #{sIdx + 1}
+                          </span>
+                          <span style={{ fontWeight: 600 }}>{s.name}</span>
+                          <span style={{ color: '#10B981', marginLeft: 'auto', fontWeight: 700 }}>
+                            +{s.demandQuantity} u
+                          </span>
+                          <span style={{ color: '#6B7280', fontSize: '10px' }}>
+                            {s.distanceFromPrevKm} km
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Turn-by-Turn Waypoint Inspector */}
+                    <button
+                      className={styles.btnToggleWaypoints}
+                      onClick={() => setExpandedWaypointVehicleId(isWaypointsOpen ? null : r.vehicleId)}
+                    >
+                      {isWaypointsOpen ? (
+                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                          <ChevronUp size={12} /> Hide Turn-by-Turn Waypoints
+                        </span>
+                      ) : (
+                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                          <ChevronDown size={12} /> Inspect Turn-by-Turn Waypoints ({r.roadGeometry?.legs?.length || demandStops.length} legs)
+                        </span>
+                      )}
+                    </button>
+
+                    {isWaypointsOpen && (
+                      <div className={styles.waypointsAccordion}>
+                        {(r.roadGeometry?.legs || []).map((leg: any, lIdx: number) => (
+                          <div key={lIdx} style={{ padding: '3px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <strong>Leg {lIdx + 1}:</strong> {leg.summary || 'Highway Transit'} ({Math.round(leg.distanceMeters / 1000)} km, ~{Math.round(leg.durationSeconds / 60)} min)
                           </div>
                         ))}
                       </div>
@@ -807,9 +1246,57 @@ export const LogisticsOptimizer: React.FC = () => {
                 );
               })}
             </div>
+          </section>
+        </main>
+      </div>
+
+      {/* ── DISPATCH AUTHORIZATION CONFIRMATION MODAL ── */}
+      {showDispatchModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#F3F4F6', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Send size={16} className="text-emerald-400" />
+                <span>AUTHORIZE FLEET DISPATCH?</span>
+              </h3>
+              <button
+                onClick={() => setShowDispatchModal(false)}
+                style={{ background: 'transparent', border: 'none', color: '#9CA3AF', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '12px', color: '#9CA3AF', margin: 0, lineHeight: 1.5 }}>
+              This will convert all <strong>{routes.length} optimized vehicle itineraries</strong> into active missions in the <strong>SAKSHAM Dispatch Console</strong>.
+              Responders and convoys will be placed in <strong>ASSIGNED</strong> state.
+            </p>
+
+            <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px 14px', borderRadius: '6px', fontSize: '11px', color: '#D1D5DB' }}>
+              <div>• Total Vehicles: <strong>{routes.length}</strong></div>
+              <div>• Total Demand Points: <strong>{selectedDemandsCount}</strong></div>
+              <div>• Total Cargo: <strong>{metrics?.totalResourceAllocated?.toLocaleString()} units</strong></div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                onClick={() => setShowDispatchModal(false)}
+                style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#D1D5DB', padding: '8px 14px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                CANCEL
+              </button>
+
+              <button
+                onClick={handleConfirmDispatch}
+                style={{ background: '#10B981', border: 'none', color: '#FFFFFF', padding: '8px 18px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Check size={14} />
+                <span>CONFIRM &amp; DISPATCH</span>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

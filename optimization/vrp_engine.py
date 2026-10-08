@@ -1,30 +1,28 @@
 #!/usr/bin/env python3
 """
 SAKSHAM — OR-Tools Multi-Vehicle Capacity-Constrained Routing Problem (CVRP) Engine
-Implements multi-depot, multi-vehicle routing with capacity constraints and critical demand penalties.
+Implements multi-depot, multi-vehicle routing with capacity constraints, critical demand penalties,
+configurable solver strategies, and service times.
 """
 
 import sys
 import json
 from ortools.constraint_solver import routing_enums_pb2, pywrapcp
 
+def get_strategy_enum(name):
+    strategies = {
+        "PATH_CHEAPEST_ARC": routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC,
+        "PARALLEL_CHEAPEST_INSERTION": routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION,
+        "SAVINGS": routing_enums_pb2.FirstSolutionStrategy.SAVINGS,
+        "CHRISTOFIDES": routing_enums_pb2.FirstSolutionStrategy.CHRISTOFIDES,
+        "LOCAL_CHEAPEST_INSERTION": routing_enums_pb2.FirstSolutionStrategy.LOCAL_CHEAPEST_INSERTION,
+        "AUTOMATIC": routing_enums_pb2.FirstSolutionStrategy.AUTOMATIC
+    }
+    return strategies.get((name or "").upper(), routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
+
 def solve_vrp(data):
     """
     Solves Capacitated Vehicle Routing Problem with Penalties for Dropped Nodes.
-    
-    Expected JSON Structure:
-    {
-        "distance_matrix": [[int, ...], ...], # in meters
-        "duration_matrix": [[int, ...], ...], # in seconds
-        "demands": [int, ...],                # demand load per node (depots have 0)
-        "vehicle_capacities": [int, ...],     # capacity per vehicle
-        "num_vehicles": int,
-        "starts": [int, ...],                 # start node index for each vehicle
-        "ends": [int, ...],                   # end node index for each vehicle
-        "priorities": [str, ...],             # 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'
-        "time_windows": [[int, int], ...],    # optional [earliest, latest] in seconds
-        "node_ids": [str, ...]                # identifiers for output mapping
-    }
     """
     distance_matrix = data["distance_matrix"]
     duration_matrix = data.get("duration_matrix", distance_matrix)
@@ -36,6 +34,11 @@ def solve_vrp(data):
     priorities = data.get("priorities", ["MEDIUM"] * len(demands))
     node_ids = data.get("node_ids", [str(i) for i in range(len(demands))])
     num_nodes = len(distance_matrix)
+
+    # Configurable parameters
+    strategy_name = data.get("strategy", "PATH_CHEAPEST_ARC")
+    max_solve_time_s = int(data.get("max_solve_time_seconds", 3))
+    service_time_s = int(data.get("service_time_seconds_per_stop", 600)) # 10 min default
 
     if num_vehicles <= 0 or num_nodes <= 1:
         return {
@@ -71,30 +74,27 @@ def solve_vrp(data):
     )
 
     # 4. Add Penalties for Dropping Demand Nodes (Critical Demands get Huge Penalties)
-    # Depots cannot be dropped
     depot_nodes = set(starts + ends)
     priority_penalties = {
-        "CRITICAL": 5000000, # 5000 km equivalent penalty
-        "HIGH":     1500000, # 1500 km equivalent penalty
-        "MEDIUM":    500000, # 500 km equivalent penalty
-        "LOW":       150000  # 150 km equivalent penalty
+        "CRITICAL": 10000000, # 10,000 km equivalent penalty
+        "HIGH":      3000000, #  3,000 km equivalent penalty
+        "MEDIUM":    1000000, #  1,000 km equivalent penalty
+        "LOW":        250000  #    250 km equivalent penalty
     }
 
     for node in range(num_nodes):
         if node not in depot_nodes:
             prio = priorities[node] if node < len(priorities) else "MEDIUM"
-            penalty = priority_penalties.get(prio.upper(), 500000)
+            penalty = priority_penalties.get(prio.upper(), 1000000)
             routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
 
     # 5. Search Parameters
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
-    search_parameters.first_solution_strategy = (
-        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
-    )
+    search_parameters.first_solution_strategy = get_strategy_enum(strategy_name)
     search_parameters.local_search_metaheuristic = (
         routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
     )
-    search_parameters.time_limit.seconds = 2
+    search_parameters.time_limit.seconds = max(1, min(max_solve_time_s, 30))
 
     # 6. Solve Problem
     solution = routing.SolveWithParameters(search_parameters)
@@ -130,13 +130,15 @@ def solve_vrp(data):
             next_node = manager.IndexToNode(index)
             
             route_dist_m += distance_matrix[node][next_node]
-            route_dur_s += duration_matrix[node][next_node]
+            transit_time = duration_matrix[node][next_node]
+            # Add stop service time if intermediate demand stop
+            dwell = service_time_s if (node not in depot_nodes) else 0
+            route_dur_s += (transit_time + dwell)
 
         end_node = manager.IndexToNode(index)
         route_nodes.append(end_node)
 
-        # Only include if vehicle visits at least one demand node
-        stops_count = len(route_nodes)
+        # Include if vehicle visits at least one demand node
         has_demands = any(n not in depot_nodes for n in route_nodes)
 
         routes.append({

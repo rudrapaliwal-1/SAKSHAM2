@@ -3,6 +3,13 @@ import { RoutingSource, RouteGeometryResult } from '../routing/routing.types.js'
 
 export type PriorityLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 
+export interface SolverConfigInput {
+  strategy?: 'PATH_CHEAPEST_ARC' | 'PARALLEL_CHEAPEST_INSERTION' | 'SAVINGS' | 'CHRISTOFIDES' | 'LOCAL_CHEAPEST_INSERTION';
+  maxSolveTimeSeconds?: number;
+  serviceTimeMinutesPerStop?: number;
+  useOsrmRoadApi?: boolean;
+}
+
 export interface VehicleInput {
   id: string;
   name: string;
@@ -14,6 +21,7 @@ export interface VehicleInput {
   driverName?: string;
   status?: 'AVAILABLE' | 'ASSIGNED' | 'EN_ROUTE' | 'ARRIVED' | 'MAINTENANCE';
   speedKmh?: number;
+  color?: string;
 }
 
 export interface DepotInput {
@@ -26,6 +34,8 @@ export interface DepotInput {
   availableQuantity: number;
   allocatedQuantity?: number;
   status: 'ACTIVE' | 'LOW' | 'DEPLETED';
+  stationedVehicleCount?: number;
+  selected?: boolean;
 }
 
 export interface DemandTargetInput {
@@ -43,6 +53,7 @@ export interface DemandTargetInput {
   status: string;
   assignedVehicleId?: string;
   assignedDepotId?: string;
+  selected?: boolean;
 }
 
 export interface VrpStop {
@@ -66,6 +77,7 @@ export interface OptimizedVehicleRoute {
   driverName: string;
   depotId: string;
   depotName: string;
+  color: string;
   status: 'PLANNED' | 'ASSIGNED' | 'EN_ROUTE' | 'ARRIVED' | 'COMPLETED';
   stops: VrpStop[];
   totalDistanceKm: number;

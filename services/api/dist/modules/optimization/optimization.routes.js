@@ -11,7 +11,7 @@ exports.optimizationRouter = (0, express_1.Router)();
  */
 exports.optimizationRouter.post('/optimize', async (req, res) => {
     try {
-        let { vehicles, depots, demands } = req.body;
+        let { vehicles, depots, demands, solverConfig } = req.body;
         // If no payload provided, load default deterministic demo scenario
         if (!vehicles || !depots || !demands) {
             const demo = optimization_service_js_1.OptimizationService.getDemoScenario();
@@ -19,7 +19,7 @@ exports.optimizationRouter.post('/optimize', async (req, res) => {
             depots = depots || demo.depots;
             demands = demands || demo.demands;
         }
-        const result = await optimization_service_js_1.OptimizationService.optimizeRoutes(vehicles, depots, demands);
+        const result = await optimization_service_js_1.OptimizationService.optimizeRoutes(vehicles, depots, demands, solverConfig);
         return res.json(result);
     }
     catch (err) {
