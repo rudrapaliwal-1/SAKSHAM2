@@ -11,6 +11,13 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     DATABASE_URL: str = "postgresql://saksham:saksham_secure_pass_2026@localhost:5432/saksham_db"
 
+    # OSRM Routing settings
+    OSRM_ENABLED: bool = True
+    OSRM_LOCAL_URL: str = "http://localhost:5000"
+    OSRM_PUBLIC_URL: str = "https://router.project-osrm.org"
+    OSRM_PROFILE: str = "driving"
+    OSRM_TIMEOUT_SECONDS: float = 5.0
+
     class Config:
         env_file = ".env"
         extra = "ignore"
