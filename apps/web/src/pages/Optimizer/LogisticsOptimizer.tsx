@@ -30,25 +30,78 @@ const MAP_STYLES: Record<string, string | any> = {
   STREETS: {
     version: 8,
     sources: {
-      'carto-light': {
+      'osm-tiles': {
         type: 'raster',
-        tiles: ['https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'],
+        tiles: [
+          'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        ],
         tileSize: 256,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       },
     },
     layers: [
       {
-        id: 'carto-light-layer',
+        id: 'osm-tiles-layer',
         type: 'raster',
-        source: 'carto-light',
+        source: 'osm-tiles',
         minzoom: 0,
         maxzoom: 19,
       },
     ],
   },
-  TACTICAL: 'https://demotiles.maplibre.org/style.json',
-  DARK: 'https://demotiles.maplibre.org/style.json',
+  TACTICAL: {
+    version: 8,
+    sources: {
+      'esri-satellite': {
+        type: 'raster',
+        tiles: [
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        ],
+        tileSize: 256,
+        attribution: '&copy; Esri, Maxar, Earthstar Geographics',
+      },
+    },
+    layers: [
+      {
+        id: 'esri-satellite-layer',
+        type: 'raster',
+        source: 'esri-satellite',
+        minzoom: 0,
+        maxzoom: 19,
+      },
+    ],
+  },
+  DARK: {
+    version: 8,
+    sources: {
+      'osm-dark': {
+        type: 'raster',
+        tiles: [
+          'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        ],
+        tileSize: 256,
+        attribution: '&copy; OpenStreetMap contributors',
+      },
+    },
+    layers: [
+      {
+        id: 'osm-dark-layer',
+        type: 'raster',
+        source: 'osm-dark',
+        minzoom: 0,
+        maxzoom: 19,
+        paint: {
+          'raster-brightness-max': 0.65,
+          'raster-saturation': -0.9,
+          'raster-contrast': 0.3,
+        },
+      },
+    ],
+  },
 };
 
 const DEFAULT_DEPOTS = [

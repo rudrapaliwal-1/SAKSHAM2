@@ -435,6 +435,7 @@ export const OperationsLayout: React.FC = () => {
     { path: '/operations/command-center', label: t('navigation.commandCenter') },
     { path: '/operations/matching', label: t('navigation.matching') },
     { path: '/operations/optimizer', label: 'OPTIMIZER', badge: 'VRP' },
+    { path: '/operations/spatial', label: 'SPATIAL 3D', badge: 'GIS' },
     { path: '/operations/dispatch', label: t('navigation.dispatch') },
     { path: '/operations/delivery', label: t('navigation.delivery') }
   ];

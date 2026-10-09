@@ -34,6 +34,14 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
+.headerTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
 .liveBadge {
   font-family: var(--font-mono, monospace);
   font-size: 10px;
@@ -42,8 +50,30 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 6px;
   color: #e5e7eb;
+}
+
+.spatialLinkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  font-family: var(--font-mono, monospace);
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 3px 7px;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.spatialLinkBtn:hover {
+  background: #38bdf8;
+  color: #080c14;
+  border-color: #38bdf8;
 }
 
 .pulseDot {
@@ -288,6 +318,21 @@
 .teamEta {
   color: #F47C20;
   font-weight: 700;
+}
+
+.mapAttribution {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  background: rgba(11, 15, 23, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono, monospace);
+  font-size: 8px;
+  color: #94a3b8;
+  z-index: 10;
+  pointer-events: none;
 }
 
 /* MOBILE MEDIA QUERY RESPONSIVENESS */
