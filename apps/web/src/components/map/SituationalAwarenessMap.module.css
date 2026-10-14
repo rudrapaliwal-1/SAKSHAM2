@@ -1,12 +1,18 @@
+/* ═══════════════════════════════════════════════════════════
+   SAKSHAM SITUATIONAL AWARENESS COP (GIS)
+   SituationalAwarenessMap.module.css
+   Rich Satellite Intelligence, Floating Glass Panels, Live Telemetry
+   ═══════════════════════════════════════════════════════════ */
+
 .mapPanelWrapper {
   position: relative;
   width: 100%;
-  height: 540px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  height: 600px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   overflow: hidden;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-  background-color: #0b0f17;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.6), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+  background-color: #070d14;
 }
 
 .mapContainerInner {
@@ -18,20 +24,24 @@
   z-index: 1;
 }
 
-/* TOP-LEFT OVERLAY */
+/* ─── TOP-LEFT OVERLAY (Live Badge & Active Stats) ─────────── */
+
 .mapHeaderOverlay {
   position: absolute;
   top: 14px;
   left: 14px;
-  z-index: 10;
-  background: rgba(13, 17, 23, 0.9);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  z-index: 20;
+  background: rgba(10, 15, 25, 0.9);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: 10px;
   color: #f3f4f6;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .headerTopRow {
@@ -39,90 +49,186 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 6px;
 }
 
 .liveBadge {
   font-family: var(--font-mono, monospace);
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 0.08em;
   display: flex;
   align-items: center;
+  gap: 7px;
+  color: #f3f4f6;
+}
+
+.pulseDot {
+  color: #f97316;
+  font-size: 11px;
+  animation: blink 1.6s infinite ease-in-out;
+  filter: drop-shadow(0 0 6px #f97316);
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0.35; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
   gap: 6px;
-  color: #e5e7eb;
 }
 
 .spatialLinkBtn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.4);
+  border: 1px solid rgba(56, 189, 248, 0.45);
   color: #38bdf8;
   font-family: var(--font-mono, monospace);
-  font-size: 8.5px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.06em;
-  padding: 3px 7px;
-  border-radius: 4px;
+  padding: 4px 8px;
+  border-radius: 5px;
   text-decoration: none;
   transition: all 0.2s ease;
 }
 
 .spatialLinkBtn:hover {
   background: #38bdf8;
-  color: #080c14;
+  color: #070d14;
   border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
 }
 
-.pulseDot {
-  color: #f97316;
-  animation: blink 1.5s infinite ease-in-out;
+.tiltToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-@keyframes blink {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
+.tiltToggleBtn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+.tiltToggleBtnActive {
+  background: rgba(249, 115, 22, 0.25) !important;
+  border-color: #f97316 !important;
+  color: #fdba74 !important;
 }
 
 .statsRow {
   display: flex;
-  gap: 14px;
+  gap: 16px;
+  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 6px;
 }
 
 .statBox {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .statLabel {
-  font-size: 8px;
+  font-size: 8.5px;
   font-weight: 800;
-  color: #9ca3af;
+  color: #94a3b8;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  font-family: var(--font-mono, monospace);
 }
 
 .statValue {
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 800;
   color: #ffffff;
   line-height: 1;
+  font-family: var(--font-mono, monospace);
 }
 
-/* TOP-RIGHT LEGEND OVERLAY */
-.legendOverlay {
+.statSubtext {
+  font-size: 9px;
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+/* ─── TOP-RIGHT CONTROLS: BASEMAP SELECTOR & LEGEND ────────── */
+
+.topRightControls {
   position: absolute;
   top: 14px;
   right: 14px;
-  z-index: 10;
-  background: rgba(13, 17, 23, 0.9);
-  backdrop-filter: blur(10px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.topRowBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.basemapSwitcher {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(10, 15, 25, 0.9);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 3px;
+  border-radius: 8px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+}
+
+.basemapBtn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.65);
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.basemapBtn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.basemapBtnActive {
+  background: rgba(56, 189, 248, 0.22) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+}
+
+.legendOverlay {
+  background: rgba(10, 15, 25, 0.9);
+  backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: 5px 12px;
+  border-radius: 7px;
   display: flex;
   gap: 12px;
   align-items: center;
@@ -141,71 +247,130 @@
 }
 
 .legendDot {
-  font-size: 10px;
+  font-size: 11px;
 }
 
-.dotCritical { color: #ef4444; }
-.dotWarning { color: #f59e0b; }
-.dotSuccess { color: #10b981; }
+.dotCritical { color: #ef4444; filter: drop-shadow(0 0 4px #ef4444); }
+.dotWarning { color: #f97316; filter: drop-shadow(0 0 4px #f97316); }
+.dotSuccess { color: #10b981; filter: drop-shadow(0 0 4px #10b981); }
 
-/* RIGHT PANEL OVERLAYS (Incident Feed & Deployed Units) */
+/* ─── RIGHT OVERLAY CONTAINER: INCIDENT FEED & UNITS ────────── */
+
 .rightOverlayContainer {
   position: absolute;
-  top: 54px;
+  top: 56px;
   right: 14px;
-  z-index: 10;
+  z-index: 20;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  width: 230px;
+  width: 250px;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.rightOverlayCollapsed {
+  transform: translateX(270px);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.feedToggleBtn {
+  position: absolute;
+  top: 56px;
+  right: 14px;
+  z-index: 25;
+  background: rgba(10, 15, 25, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: none; /* Shown on small screens */
+  align-items: center;
+  gap: 4px;
 }
 
 .overlayPanel {
-  background: rgba(13, 17, 23, 0.92);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  background: rgba(10, 15, 25, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
   padding: 10px 12px;
   color: #f3f4f6;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
 .panelTitle {
   font-family: var(--font-mono, monospace);
   font-size: 9px;
   font-weight: 800;
-  color: #9ca3af;
+  color: #94a3b8;
   letter-spacing: 0.08em;
   margin-bottom: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding-bottom: 4px;
   text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panelBadge {
+  font-size: 8px;
+  padding: 1px 4px;
+  background: rgba(249, 115, 22, 0.2);
+  border: 1px solid rgba(249, 115, 22, 0.4);
+  color: #fdba74;
+  border-radius: 3px;
 }
 
 .panelList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
 
 .feedItem {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  position: relative;
 }
 
-.feedItem:last-child {
-  padding-bottom: 0;
-  border-bottom: none;
+.feedItem:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateX(-2px);
+}
+
+.feedItemCritical {
+  border-left: 3px solid #ef4444;
+}
+
+.feedItemHigh {
+  border-left: 3px solid #f97316;
+}
+
+.feedItemMedium {
+  border-left: 3px solid #eab308;
 }
 
 .feedItemHeader {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
 }
 
 .feedType {
@@ -215,9 +380,15 @@
   letter-spacing: 0.02em;
 }
 
+.feedTimeAgo {
+  font-family: var(--font-mono, monospace);
+  font-size: 8.5px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
 .feedZone {
   font-size: 10px;
-  color: #9ca3af;
+  color: #cbd5e1;
   line-height: 1.3;
 }
 
@@ -228,13 +399,14 @@
   align-items: center;
   gap: 4px;
   font-weight: 600;
+  margin-top: 2px;
 }
 
 .emptyFeed {
   font-size: 10px;
-  color: #6b7280;
+  color: #64748b;
   text-align: center;
-  padding: 6px 0;
+  padding: 8px 0;
 }
 
 .unitGrid {
@@ -247,84 +419,145 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 6px;
   padding: 6px 4px;
+  transition: all 0.15s ease;
+}
+
+.unitBox:hover {
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .unitNum {
   font-family: var(--font-mono, monospace);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 800;
   color: #f3f4f6;
 }
 
 .unitLabel {
-  font-size: 8px;
+  font-size: 8.5px;
   font-weight: 700;
-  color: #9ca3af;
+  color: #94a3b8;
   text-transform: uppercase;
 }
 
-/* BOTTOM-LEFT ACTIVE TEAM CARD OVERLAY */
+/* ─── BOTTOM-LEFT ACTIVE TEAM CARD OVERLAY ──────────────────── */
+
 .activeTeamOverlay {
   position: absolute;
   bottom: 14px;
   left: 14px;
-  z-index: 10;
-  background: rgba(13, 17, 23, 0.92);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  padding: 8px 12px;
+  z-index: 20;
+  background: rgba(10, 15, 25, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  padding: 10px 14px;
   color: #f3f4f6;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  gap: 5px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 220px;
+}
+
+.activeTeamOverlay:hover {
+  border-color: rgba(249, 115, 22, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7);
 }
 
 .teamHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.teamTitleGroup {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
 .teamIcon {
-  color: #F47C20;
+  color: #f97316;
 }
 
 .teamName {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #ffffff;
 }
 
 .teamStatus {
-  font-family: var(--font-mono);
-  font-size: 8px;
-  color: rgba(250, 248, 243, 0.5);
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.7);
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.statusLivePill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #10b981;
 }
 
 .statusDot {
-  color: var(--color-success);
+  color: #10b981;
+  font-size: 10px;
+  animation: blink 1.6s infinite ease-in-out;
 }
 
 .teamEta {
-  color: #F47C20;
+  color: #f97316;
+  font-weight: 800;
+  background: rgba(249, 115, 22, 0.15);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.teamTelemetryRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono, monospace);
+  font-size: 8.5px;
+  color: #94a3b8;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 4px;
+  margin-top: 2px;
+}
+
+.telemetryItem {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.telemetryHighlight {
+  color: #38bdf8;
   font-weight: 700;
 }
+
+/* ─── MAP ATTRIBUTION BAR ───────────────────────────────────── */
 
 .mapAttribution {
   position: absolute;
   bottom: 8px;
   right: 12px;
-  background: rgba(11, 15, 23, 0.8);
+  background: rgba(10, 15, 25, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 3px 8px;
   border-radius: 4px;
@@ -335,21 +568,38 @@
   pointer-events: none;
 }
 
-/* MOBILE MEDIA QUERY RESPONSIVENESS */
+/* ─── RESPONSIVE BEHAVIOR ───────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .rightOverlayContainer {
+    width: 210px;
+  }
+}
+
 @media (max-width: 768px) {
   .mapPanelWrapper {
-    height: 440px;
+    height: 480px;
   }
 
   .rightOverlayContainer {
-    display: none; /* Hide dense list panels on small screens */
+    display: none;
   }
 
-  .mapHeaderOverlay {
-    padding: 8px 12px;
+  .feedToggleBtn {
+    display: flex;
+  }
+
+  .statsRow {
+    gap: 10px;
   }
 
   .statValue {
-    font-size: 1.1rem;
+    font-size: 1.15rem;
+  }
+
+  .topRightControls {
+    top: auto;
+    bottom: 56px;
+    right: 14px;
   }
 }
