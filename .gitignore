@@ -40,3 +40,5 @@ __pycache__/
 
 # FastAPI local environment
 services/fastapi/.venv/
+
+vibeCI/
