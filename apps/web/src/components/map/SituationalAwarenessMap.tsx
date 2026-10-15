@@ -4,7 +4,20 @@ import { useOperationalState } from '../../context/OperationalStateContext';
 import { MapView, type BasemapMode } from './MapView';
 import type { Incident } from '../../types/incident';
 import type { Vehicle } from '../../types/vehicle';
-import { Truck, Activity, Box, Navigation, Layers, ChevronRight, Gauge } from 'lucide-react';
+import {
+  Truck,
+  Activity,
+  Box,
+  ChevronRight,
+  Gauge,
+  Volume2,
+  VolumeX,
+  Radio,
+  Navigation,
+  Compass,
+  ArrowRight
+} from 'lucide-react';
+import { tacticalAudio } from '../../utils/tacticalAudio';
 import styles from './SituationalAwarenessMap.module.css';
 
 // Primary Road-Following Emergency Route (North Delhi Embankment -> Central Delhi -> Okhla Phase II)
@@ -52,6 +65,28 @@ export const SituationalAwarenessMap: React.FC = () => {
   const [hoveredIncidentId, setHoveredIncidentId] = useState<string | null>(null);
   const [isFeedCollapsed, setIsFeedCollapsed] = useState(false);
 
+  // Tactical interactivity states
+  const [feedFilter, setFeedFilter] = useState<'ALL' | 'CRITICAL' | 'HIGH' | 'MEDIUM'>('ALL');
+  const [feedSearch, setFeedSearch] = useState('');
+  const [isTelemetryExpanded, setIsTelemetryExpanded] = useState(false);
+  const [activeTrackingVehicleId, setActiveTrackingVehicleId] = useState<string | null>(null);
+  const [useContingencyRoute, setUseContingencyRoute] = useState(false);
+  const [radioPingStatus, setRadioPingStatus] = useState<string | null>(null);
+  const [isAudioMuted, setIsAudioMuted] = useState(tacticalAudio.getMuted());
+  const [liveTelemetry, setLiveTelemetry] = useState<{
+    speedKmh: number;
+    headingDeg: number;
+    distanceRemainingKm: number;
+    etaMin: number;
+    progressPct: number;
+  }>({
+    speedKmh: 48,
+    headingDeg: 142,
+    distanceRemainingKm: 6.2,
+    etaMin: 14,
+    progressPct: 35
+  });
+
   const layerFilters = useMemo(() => ({
     incidents: true,
     resources: true,
@@ -68,6 +103,22 @@ export const SituationalAwarenessMap: React.FC = () => {
     [incidents]
   );
 
+  // Filter feed incidents with priority chips & search query
+  const filteredFeedIncidents = useMemo(() => {
+    return activeIncidents.filter(inc => {
+      if (feedFilter !== 'ALL' && inc.severity !== feedFilter) return false;
+      if (feedSearch.trim()) {
+        const q = feedSearch.toLowerCase();
+        return (
+          inc.location.toLowerCase().includes(q) ||
+          inc.type.toLowerCase().includes(q) ||
+          inc.description.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [activeIncidents, feedFilter, feedSearch]);
+
   // Active fleet statistics
   const enRouteVehicles = useMemo(() => 
     vehicles.filter(v => v.status === 'EN_ROUTE' || v.status === 'DISPATCHED'),
@@ -80,26 +131,38 @@ export const SituationalAwarenessMap: React.FC = () => {
   );
 
   // Road-following route geometries
-  const activeVehicleId = vehicles[0]?.id || 'VEH-TRK-101';
+  const activeVehicle = vehicles[0] || { id: 'VEH-TRK-101', name: 'Logistics Team Alpha' };
+  const activeVehicleId = activeVehicle.id;
+
   const customRoutes: Record<string, [number, number][]> = {
-    [activeVehicleId]: DELHI_EMERGENCY_ROUTE,
+    [activeVehicleId]: useContingencyRoute ? DELHI_CONTINGENCY_ROUTE : DELHI_EMERGENCY_ROUTE,
     ...(vehicles[1] ? { [vehicles[1].id]: YAMUNA_EVACUATION_CORRIDOR } : {})
   };
 
   const alternativeRoutes: Record<string, [number, number][]> = {
-    'contingency-corridor-1': DELHI_CONTINGENCY_ROUTE
+    'contingency-corridor-1': useContingencyRoute ? DELHI_EMERGENCY_ROUTE : DELHI_CONTINGENCY_ROUTE
   };
 
   const handleIncidentClick = (incident: Incident) => {
     setSelectedIncident(incident);
     setSelectedVehicle(null);
+    tacticalAudio.playRadarPing();
   };
 
   const handleVehicleClick = () => {
     if (vehicles[0]) {
       setSelectedVehicle(vehicles[0]);
       setSelectedIncident(null);
+      setIsTelemetryExpanded(prev => !prev);
+      tacticalAudio.playRadarPing();
     }
+  };
+
+  const handleRadioPing = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    tacticalAudio.playDispatchConfirm();
+    setRadioPingStatus('ACK 200 OK · 24ms (Signal: -68 dBm)');
+    setTimeout(() => setRadioPingStatus(null), 3500);
   };
 
   return (
@@ -112,6 +175,15 @@ export const SituationalAwarenessMap: React.FC = () => {
           </div>
 
           <div className={styles.headerActions}>
+            <button
+              type="button"
+              className={`${styles.audioToggleBtn} ${isAudioMuted ? styles.audioToggleBtnMuted : ''}`}
+              onClick={() => setIsAudioMuted(tacticalAudio.toggleMute())}
+              title={isAudioMuted ? "Unmute Tactical Sound FX" : "Mute Tactical Sound FX"}
+            >
+              {isAudioMuted ? <VolumeX size={11} /> : <Volume2 size={11} />}
+              <span>{isAudioMuted ? 'MUTED' : 'AUDIO'}</span>
+            </button>
             <Link
               to="/spatial"
               className={styles.spatialLinkBtn}
@@ -207,9 +279,23 @@ export const SituationalAwarenessMap: React.FC = () => {
           defaultBasemap={basemap}
           onBasemapChange={setBasemap}
           onSelectIncident={handleIncidentClick}
-          onSelectVehicle={(veh) => setSelectedVehicle(veh)}
+          onSelectVehicle={(veh) => {
+            setSelectedVehicle(veh);
+            setIsTelemetryExpanded(true);
+            tacticalAudio.playRadarPing();
+          }}
           showControls={true}
           showBasemapSelector={false}
+          showTacticalGrid={true}
+          showResponseRings={true}
+          showRadarSweep={true}
+          simulateFleetMovement={true}
+          activeTrackingVehicleId={activeTrackingVehicleId}
+          onVehicleTelemetryUpdate={(vehId, tel) => {
+            if (vehId === activeVehicleId) {
+              setLiveTelemetry(tel);
+            }
+          }}
         />
       </div>
 
@@ -217,12 +303,43 @@ export const SituationalAwarenessMap: React.FC = () => {
       <div className={`${styles.rightOverlayContainer} map-right-overlay ${isFeedCollapsed ? styles.rightOverlayCollapsed : ''}`}>
         {/* Incident Feed Panel */}
         <div className={styles.overlayPanel}>
-          <div className={styles.panelTitle}>
+          <div
+            className={styles.panelTitle}
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+            title="Click to collapse / expand feed"
+            onClick={() => setIsFeedCollapsed(prev => !prev)}
+          >
             <span>INCIDENT FEED</span>
             <span className={styles.panelBadge}>{activeIncidents.length} LIVE</span>
           </div>
+
+          {/* Search bar inside feed */}
+          <div className={styles.feedSearchBox}>
+            <input
+              type="text"
+              placeholder="Search active incident..."
+              value={feedSearch}
+              onChange={(e) => setFeedSearch(e.target.value)}
+              className={styles.feedSearchInput}
+            />
+          </div>
+
+          {/* Priority filter chips */}
+          <div className={styles.feedFilterBar}>
+            {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM'] as const).map(f => (
+              <button
+                key={f}
+                type="button"
+                className={`${styles.feedFilterChip} ${feedFilter === f ? styles.feedFilterChipActive : ''}`}
+                onClick={() => setFeedFilter(f)}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
           <div className={styles.panelList}>
-            {activeIncidents.slice(0, 3).map((inc, i) => {
+            {filteredFeedIncidents.slice(0, 3).map((inc, i) => {
               const severityClass = inc.severity === 'CRITICAL'
                 ? styles.feedItemCritical
                 : inc.severity === 'HIGH'
@@ -243,14 +360,25 @@ export const SituationalAwarenessMap: React.FC = () => {
                     <span className={styles.feedTimeAgo}>42m ago</span>
                   </div>
                   <span className={styles.feedZone}>{inc.location}</span>
-                  <div className={styles.feedTime}>
-                    <Activity size={10} /> Active response node
+                  <div className={styles.feedActionRow}>
+                    <div className={styles.feedTime}>
+                      <Activity size={10} /> Active node
+                    </div>
+                    <Link
+                      to="/operations/incidents"
+                      className={styles.feedActionLink}
+                      onClick={(e) => e.stopPropagation()}
+                      title="Dispatch rescue units"
+                    >
+                      <span>Dispatch</span>
+                      <ArrowRight size={9} />
+                    </Link>
                   </div>
                 </div>
               );
             })}
-            {activeIncidents.length === 0 && (
-              <div className={styles.emptyFeed}>No active incidents reported</div>
+            {filteredFeedIncidents.length === 0 && (
+              <div className={styles.emptyFeed}>No matching incidents found</div>
             )}
           </div>
         </div>
@@ -281,36 +409,112 @@ export const SituationalAwarenessMap: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── Bottom-Left Active Logistics Team Card ─── */}
+      {/* ─── Bottom-Left Active Logistics Team Card & Cockpit ─── */}
       <div
-        className={`${styles.activeTeamOverlay} map-team-overlay`}
+        className={`${styles.activeTeamOverlay} ${isTelemetryExpanded ? styles.activeTeamOverlayExpanded : ''} map-team-overlay`}
         onClick={handleVehicleClick}
-        title="Click to track convoy route & telemetry"
+        title="Click to expand / collapse full telemetry cockpit"
       >
         <div className={styles.teamHeader}>
           <div className={styles.teamTitleGroup}>
             <Truck size={13} className={styles.teamIcon} />
-            <span className={styles.teamName}>LOGISTICS TEAM ALPHA</span>
+            <span className={styles.teamName}>{activeVehicle.name?.toUpperCase() || 'LOGISTICS TEAM ALPHA'}</span>
           </div>
-          <ChevronRight size={12} color="#94a3b8" />
+          <ChevronRight size={12} color="#94a3b8" style={{ transform: isTelemetryExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
         </div>
 
         <div className={styles.teamStatus}>
           <div className={styles.statusLivePill}>
             <span className={styles.statusDot}>●</span> En Route
           </div>
-          <span className={styles.teamEta}>ETA: 14 min</span>
+          <span className={styles.teamEta}>ETA: ~{liveTelemetry.etaMin} min</span>
         </div>
 
-        <div className={styles.teamTelemetryRow}>
-          <div className={styles.telemetryItem}>
-            <Gauge size={10} />
-            <span>Speed: <strong className={styles.telemetryHighlight}>48 km/h</strong></span>
-          </div>
-          <div className={styles.telemetryItem}>
-            <span>Cargo: <strong style={{ color: '#f3f4f6' }}>400 Blankets</strong></span>
-          </div>
+        {/* Route progress track */}
+        <div className={styles.progressTrack}>
+          <div className={styles.progressFill} style={{ width: `${liveTelemetry.progressPct}%` }} />
         </div>
+
+        {/* Expanded Cockpit Gauges */}
+        {isTelemetryExpanded ? (
+          <>
+            <div className={styles.cockpitGaugesGrid}>
+              <div className={styles.gaugeCard}>
+                <span className={styles.gaugeLabel}>Speed</span>
+                <span className={styles.gaugeValue}>{liveTelemetry.speedKmh} <small style={{ fontSize: '8px' }}>km/h</small></span>
+              </div>
+              <div className={styles.gaugeCard}>
+                <span className={styles.gaugeLabel}>Remaining</span>
+                <span className={styles.gaugeValue}>{liveTelemetry.distanceRemainingKm} <small style={{ fontSize: '8px' }}>km</small></span>
+              </div>
+              <div className={styles.gaugeCard}>
+                <span className={styles.gaugeLabel}>Bearing</span>
+                <span className={styles.gaugeValue}>{liveTelemetry.headingDeg}°</span>
+              </div>
+            </div>
+
+            <div className={styles.teamTelemetryRow}>
+              <span>Cargo: <strong style={{ color: '#f3f4f6' }}>400 Thermal Blankets</strong></span>
+            </div>
+
+            {/* Tactical Convoy Actions */}
+            <div className={styles.cockpitActions}>
+              <button
+                type="button"
+                className={`${styles.cockpitBtn} ${activeTrackingVehicleId ? styles.cockpitBtnActive : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveTrackingVehicleId(activeTrackingVehicleId ? null : activeVehicleId);
+                  tacticalAudio.playRadarPing();
+                }}
+                title="Follow vehicle position with map camera"
+              >
+                <Navigation size={10} />
+                <span>{activeTrackingVehicleId ? 'Tracking Cam' : 'Follow Convoy'}</span>
+              </button>
+
+              <button
+                type="button"
+                className={`${styles.cockpitBtn} ${useContingencyRoute ? styles.cockpitBtnActive : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setUseContingencyRoute(!useContingencyRoute);
+                  tacticalAudio.playRadarPing();
+                }}
+                title="Toggle between Primary and Contingency route corridors"
+              >
+                <Compass size={10} />
+                <span>{useContingencyRoute ? 'Contingency' : 'Primary'}</span>
+              </button>
+
+              <button
+                type="button"
+                className={styles.cockpitBtn}
+                onClick={handleRadioPing}
+                title="Transmit telemetry check to convoy radio mesh"
+              >
+                <Radio size={10} />
+                <span>Ping</span>
+              </button>
+            </div>
+
+            {radioPingStatus && (
+              <div className={styles.radioPingBadge}>
+                <span>📡 {radioPingStatus}</span>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className={styles.teamTelemetryRow}>
+            <div className={styles.telemetryItem}>
+              <Gauge size={10} />
+              <span>Speed: <strong className={styles.telemetryHighlight}>{liveTelemetry.speedKmh} km/h</strong></span>
+            </div>
+            <div className={styles.telemetryItem}>
+              <span>Remaining: <strong style={{ color: '#f3f4f6' }}>{liveTelemetry.distanceRemainingKm} km</strong></span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ─── Map Attribution Bar ─── */}

@@ -24,6 +24,35 @@ import styles from './CommandCenter.module.css';
 import GradientBackground from '../../components/ui/noisy-gradient-backgrounds';
 import { PageGuideTrigger, PageGuidebook } from '../../components/ui/PageGuide';
 import { ShaderBackground } from '../../components/ui/ShaderBackground';
+import { tacticalAudio } from '../../utils/tacticalAudio';
+
+// Primary Road-Following Emergency Route (North Delhi Embankment -> Central Delhi -> Okhla Phase II)
+const DELHI_EMERGENCY_ROUTE: [number, number][] = [
+  [77.2185, 28.6720],
+  [77.2090, 28.6500],
+  [77.1900, 28.6430],
+  [77.2180, 28.6300],
+  [77.2150, 28.5850],
+  [77.2080, 28.5680],
+  [77.2430, 28.5450],
+  [77.2580, 28.5300],
+  [77.2750, 28.5200],
+  [77.2900, 28.5100],
+];
+
+const YAMUNA_EVACUATION_CORRIDOR: [number, number][] = [
+  [77.2315, 28.6692],
+  [77.2550, 28.6580],
+  [77.2880, 28.6300],
+  [77.2980, 28.5910],
+];
+
+const DELHI_CONTINGENCY_ROUTE: [number, number][] = [
+  [77.2750, 28.5200],
+  [77.2900, 28.5100],
+  [77.3020, 28.4950],
+  [77.3180, 28.4750],
+];
 
 const fmtTimeAgo = (iso: string): string => {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -91,6 +120,25 @@ export const CommandCenter: React.FC = () => {
 
   // Animation trigger state
   const [statsAnimated, setStatsAnimated] = useState(false);
+
+  // Tactical live telemetry & audio states
+  const [activeTrackingVehicleId, setActiveTrackingVehicleId] = useState<string | null>(null);
+  const [liveVehicleTelemetry, setLiveVehicleTelemetry] = useState<Record<string, any>>({});
+  const [radioPingVehicleId, setRadioPingVehicleId] = useState<string | null>(null);
+  const [isAudioMuted, setIsAudioMuted] = useState(tacticalAudio.getMuted());
+
+  // Tactical fleet road corridors
+  const customRoutes = useMemo(() => {
+    const activeVehicleId = vehicles[0]?.id || 'VEH-TRK-101';
+    return {
+      [activeVehicleId]: DELHI_EMERGENCY_ROUTE,
+      ...(vehicles[1] ? { [vehicles[1].id]: YAMUNA_EVACUATION_CORRIDOR } : {})
+    };
+  }, [vehicles]);
+
+  const altRoutes = useMemo(() => ({
+    'contingency-corridor-1': DELHI_CONTINGENCY_ROUTE
+  }), []);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLElement>(null);
@@ -263,6 +311,27 @@ export const CommandCenter: React.FC = () => {
               >
                 {dataMode === 'LIVE_BACKEND' ? '● LIVE CENTRAL API FEED' : '● SIMULATED DISASTER DEMO (DELHI NCR)'}
               </span>
+              <button
+                type="button"
+                onClick={() => setIsAudioMuted(tacticalAudio.toggleMute())}
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  padding: '3px 9px',
+                  borderRadius: '4px',
+                  backgroundColor: isAudioMuted ? 'rgba(255, 255, 255, 0.05)' : 'rgba(56, 189, 248, 0.2)',
+                  color: isAudioMuted ? 'rgba(250, 248, 243, 0.5)' : '#38BDF8',
+                  border: `1px solid ${isAudioMuted ? 'rgba(255, 255, 255, 0.1)' : 'rgba(56, 189, 248, 0.4)'}`,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+                title={isAudioMuted ? "Unmute Tactical Sound FX" : "Mute Tactical Sound FX"}
+              >
+                <span>{isAudioMuted ? '🔇 TACTICAL AUDIO OFF' : '🔊 TACTICAL AUDIO ACTIVE'}</span>
+              </button>
               <PageGuideTrigger />
             </div>
             <div style={{ overflow: 'hidden' }}>
@@ -653,13 +722,38 @@ export const CommandCenter: React.FC = () => {
             responders={responders}
             hazardZones={hazardZones}
             missions={missions}
+            routeGeometries={customRoutes}
+            alternativeRouteGeometries={altRoutes}
+            showTacticalGrid={layerFilters.routes ?? true}
+            showResponseRings={true}
+            showRadarSweep={true}
+            simulateFleetMovement={true}
+            activeTrackingVehicleId={activeTrackingVehicleId}
+            onVehicleTelemetryUpdate={(vehId, tel) => {
+              setLiveVehicleTelemetry(prev => ({ ...prev, [vehId]: tel }));
+            }}
             selectedIncident={selectedItem?.type === 'incident' ? selectedItem.obj : null}
             selectedVehicle={selectedItem?.type === 'vehicle' ? selectedItem.obj : null}
-            onSelectIncident={(i: any) => setSelectedItem({ type: 'incident', obj: i })}
-            onSelectVehicle={(v: any) => setSelectedItem({ type: 'vehicle', obj: v })}
-            onSelectShelter={(s: any) => setSelectedItem({ type: 'shelter', obj: s })}
-            onSelectDemand={(d: any) => setSelectedItem({ type: 'demand', obj: d })}
-            onSelectResource={(r: any) => setSelectedItem({ type: 'resource', obj: r })}
+            onSelectIncident={(i: any) => {
+              setSelectedItem({ type: 'incident', obj: i });
+              tacticalAudio.playRadarPing();
+            }}
+            onSelectVehicle={(v: any) => {
+              setSelectedItem({ type: 'vehicle', obj: v });
+              tacticalAudio.playRadarPing();
+            }}
+            onSelectShelter={(s: any) => {
+              setSelectedItem({ type: 'shelter', obj: s });
+              tacticalAudio.playRadarPing();
+            }}
+            onSelectDemand={(d: any) => {
+              setSelectedItem({ type: 'demand', obj: d });
+              tacticalAudio.playRadarPing();
+            }}
+            onSelectResource={(r: any) => {
+              setSelectedItem({ type: 'resource', obj: r });
+              tacticalAudio.playRadarPing();
+            }}
             layerFilters={layerFilters}
           />
         </div>
@@ -762,25 +856,97 @@ export const CommandCenter: React.FC = () => {
                     </div>
                   )}
 
-                  {selectedItem.type === 'vehicle' && (
-                    <div className={styles.inspectorDetails}>
-                      <span className={styles.inspectorSubtitle}>LOGISTICS FLEET TELEMETRY</span>
-                      <h4 className={styles.inspectorTitle}>{selectedItem.obj.name}</h4>
-                      <p className={styles.inspectorLoc}><CheckCircle size={11} /> Status: {selectedItem.obj.status}</p>
-                      <div className={styles.metaRow}>
-                        <span className={styles.metaBadge}>Driver: {selectedItem.obj.driverName}</span>
-                        <span className={styles.metaBadge}>Capacity: {selectedItem.obj.capacity}</span>
+                  {selectedItem.type === 'vehicle' && (() => {
+                    const vehId = selectedItem.obj.id;
+                    const tel = liveVehicleTelemetry[vehId];
+                    const isTracking = activeTrackingVehicleId === vehId;
+                    return (
+                      <div className={styles.inspectorDetails}>
+                        <span className={styles.inspectorSubtitle}>LOGISTICS FLEET TELEMETRY</span>
+                        <h4 className={styles.inspectorTitle}>{selectedItem.obj.name}</h4>
+                        <p className={styles.inspectorLoc}><CheckCircle size={11} color="#10B981" /> Status: {selectedItem.obj.status}</p>
+
+                        {/* Real-Time Live Telemetry Gauges */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', margin: '10px 0' }}>
+                          <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '6px', textAlign: 'center' }}>
+                            <span style={{ fontSize: '9px', color: 'rgba(250,248,243,0.5)', fontFamily: 'var(--font-mono)' }}>SPEED</span>
+                            <div style={{ fontSize: '14px', fontWeight: 800, color: '#38BDF8', fontFamily: 'var(--font-mono)' }}>
+                              {tel?.speedKmh || selectedItem.obj.speedKmh || 48} <small style={{ fontSize: '9px' }}>km/h</small>
+                            </div>
+                          </div>
+                          <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '6px', textAlign: 'center' }}>
+                            <span style={{ fontSize: '9px', color: 'rgba(250,248,243,0.5)', fontFamily: 'var(--font-mono)' }}>REMAINING</span>
+                            <div style={{ fontSize: '14px', fontWeight: 800, color: '#FFAE73', fontFamily: 'var(--font-mono)' }}>
+                              {tel?.distanceRemainingKm ? `${tel.distanceRemainingKm} km` : '5.8 km'}
+                            </div>
+                          </div>
+                          <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '6px', textAlign: 'center' }}>
+                            <span style={{ fontSize: '9px', color: 'rgba(250,248,243,0.5)', fontFamily: 'var(--font-mono)' }}>ETA</span>
+                            <div style={{ fontSize: '14px', fontWeight: 800, color: '#10B981', fontFamily: 'var(--font-mono)' }}>
+                              ~{tel?.etaMin || selectedItem.obj.etaMinutes || 14}m
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Dynamic Route Progress bar */}
+                        {tel?.progressPct !== undefined && (
+                          <div style={{ margin: '6px 0 10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'rgba(250,248,243,0.6)', fontFamily: 'var(--font-mono)', marginBottom: '3px' }}>
+                              <span>TRANSIT CORRIDOR PROGRESS</span>
+                              <span>{tel.progressPct}%</span>
+                            </div>
+                            <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                              <div style={{ width: `${tel.progressPct}%`, height: '100%', background: 'linear-gradient(90deg, #38BDF8, #F97316)', borderRadius: '3px', transition: 'width 0.3s ease' }} />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className={styles.metaRow}>
+                          <span className={styles.metaBadge}>Driver: {selectedItem.obj.driverName}</span>
+                          <span className={styles.metaBadge}>Capacity: {selectedItem.obj.capacity}</span>
+                        </div>
+                        {selectedItem.obj.cargo && (
+                          <p className={styles.inspectorDesc} style={{ color: '#FFAE73' }}>
+                            Cargo: <strong>{selectedItem.obj.cargo}</strong>
+                          </p>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            className={styles.inspectCta}
+                            style={{
+                              background: isTracking ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255,255,255,0.08)',
+                              border: `1px solid ${isTracking ? '#38BDF8' : 'rgba(255,255,255,0.15)'}`,
+                              color: isTracking ? '#38BDF8' : '#FAF8F3',
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => {
+                              setActiveTrackingVehicleId(isTracking ? null : vehId);
+                              tacticalAudio.playRadarPing();
+                            }}
+                          >
+                            {isTracking ? 'Tracking Camera' : 'Lock Camera Track'}
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.inspectCta}
+                            style={{ background: 'rgba(249, 115, 22, 0.15)', border: '1px solid rgba(249, 115, 22, 0.4)', color: '#FFAE73', cursor: 'pointer' }}
+                            onClick={() => {
+                              tacticalAudio.playDispatchConfirm();
+                              setRadioPingVehicleId(vehId);
+                              setTimeout(() => setRadioPingVehicleId(null), 3000);
+                            }}
+                          >
+                            {radioPingVehicleId === vehId ? 'Uplink 200 OK (22ms)' : 'Ping Radio Mesh'}
+                          </button>
+                          <Link to="/operations/dispatch" className={styles.inspectCta}>
+                            View Fleet Missions &rarr;
+                          </Link>
+                        </div>
                       </div>
-                      {selectedItem.obj.cargo && (
-                        <p className={styles.inspectorDesc} style={{ color: '#FFAE73' }}>
-                          Cargo: <strong>{selectedItem.obj.cargo}</strong>
-                        </p>
-                      )}
-                      <Link to="/operations/dispatch" className={styles.inspectCta}>
-                        View Fleet Missions &rarr;
-                      </Link>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {selectedItem.type === 'shelter' && (
                     <div className={styles.inspectorDetails}>

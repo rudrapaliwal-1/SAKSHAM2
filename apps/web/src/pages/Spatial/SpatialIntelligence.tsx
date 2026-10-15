@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import type { FeatureCollection } from 'geojson';
 import {
   Layers,
   Search,
@@ -11,14 +12,11 @@ import {
   MapPin,
   Building,
   CheckCircle2,
-  TrendingUp,
   FileText,
   Eye,
   Flame,
   Volume2,
-  Sliders,
   Compass,
-  ArrowRight,
   Maximize2
 } from 'lucide-react';
 import styles from './SpatialIntelligence.module.css';
@@ -206,8 +204,7 @@ export const SpatialIntelligence: React.FC = () => {
       center: [77.221, 28.616],
       zoom: 15.6,
       pitch: viewMode === '3D' ? 58 : 0,
-      bearing: viewMode === '3D' ? -24 : 0,
-      antialias: true
+      bearing: viewMode === '3D' ? -24 : 0
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
@@ -215,7 +212,7 @@ export const SpatialIntelligence: React.FC = () => {
 
     map.on('load', () => {
       // Add Cadastral GeoJSON Source
-      const geojsonData: GeoJSON.FeatureCollection = {
+      const geojsonData: FeatureCollection = {
         type: 'FeatureCollection',
         features: SAMPLE_PARCELS.map(p => ({
           type: 'Feature',
@@ -407,7 +404,16 @@ export const SpatialIntelligence: React.FC = () => {
             />
           </div>
 
-          <div className={styles.pillDropdown}>
+          <div 
+            className={styles.pillDropdown}
+            style={{ cursor: 'pointer' }}
+            title="Switch operational zone"
+            onClick={() => {
+              const cities: ('New Delhi' | 'Mumbai' | 'Kolkata' | 'Chennai')[] = ['New Delhi', 'Mumbai', 'Kolkata', 'Chennai'];
+              const nextIdx = (cities.indexOf(selectedCity) + 1) % cities.length;
+              setSelectedCity(cities[nextIdx]);
+            }}
+          >
             <MapPin size={13} className={styles.dropdownIcon} />
             <span>{selectedCity}</span>
             <ChevronDown size={13} />
@@ -691,8 +697,8 @@ export const SpatialIntelligence: React.FC = () => {
 
         {/* Bottom Corner Telemetry Footer */}
         <div className={styles.mapFooterStats}>
-          <span>PARCELS: 9/9</span>
-          <span>FILTER: ALL</span>
+          <span>PARCELS: {filteredParcels.length}/{SAMPLE_PARCELS.length}</span>
+          <span>FILTER: {filterMode}</span>
           <span>HEATMAP: {showHeatmap ? 'ON' : 'OFF'}</span>
         </div>
       </div>

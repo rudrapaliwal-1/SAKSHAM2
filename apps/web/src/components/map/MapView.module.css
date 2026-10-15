@@ -607,3 +607,78 @@
   font-weight: 600;
   color: #ffffff;
 }
+
+/* ─── Tactical Radar Sweep Animation ────────────────────────── */
+
+.radarSweepOverlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 440px;
+  height: 440px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 5;
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  box-shadow: 0 0 40px rgba(56, 189, 248, 0.08), inset 0 0 40px rgba(56, 189, 248, 0.08);
+}
+
+.radarSweepCenter {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  background: #38bdf8;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 10px #38bdf8;
+}
+
+.radarSweepBeam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(56, 189, 248, 0.35) 0deg,
+    rgba(56, 189, 248, 0.12) 35deg,
+    transparent 65deg,
+    transparent 360deg
+  );
+  animation: radarBeamRotate 5s linear infinite;
+}
+
+@keyframes radarBeamRotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.toolIconBtnActive {
+  background: rgba(56, 189, 248, 0.25) !important;
+  border-color: rgba(56, 189, 248, 0.6) !important;
+  color: #38bdf8 !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4) !important;
+}
+
+.tacticalIsochroneLabel {
+  background: rgba(10, 15, 25, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  font-family: var(--font-mono, monospace);
+  font-size: 8px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+

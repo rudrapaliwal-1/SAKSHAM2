@@ -58,7 +58,7 @@ if officer.region and record.region != officer.region:
 4. **Configure environment variable**:
    Copy `.env.example` to `.env` and fill in credentials:
    ```bash
-   DATABASE_URL="postgresql://saksham:saksham_secure_pass_2026@localhost:5432/saksham_db"
+   DATABASE_URL="postgresql://<user>:<password>@localhost:5432/saksham_db"  # placeholder credentials
    ```
 
 5. **Launch the FastAPI app**:

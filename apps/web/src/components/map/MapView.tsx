@@ -7,7 +7,8 @@ import type { Vehicle } from '../../types/vehicle';
 import type { Shelter } from '../../types/shelter';
 import type { ResponderItem } from '../../data/mockResponders';
 import type { HazardZone } from '../../data/mockHazardZones';
-import { Layers, Compass, ZoomIn, ZoomOut, Maximize2, Shield, AlertTriangle, Truck, Navigation } from 'lucide-react';
+import type { FeatureCollection } from 'geojson';
+import { Compass, ZoomIn, ZoomOut, Maximize2, Navigation, Crosshair, Radio, Play, Pause, Activity } from 'lucide-react';
 import styles from './MapView.module.css';
 
 export type BasemapMode = 'SATELLITE_HYBRID' | 'TACTICAL_DARK' | 'STREETS';
@@ -38,6 +39,22 @@ interface MapViewProps {
   onSelectMission?: (mission: any) => void;
   routeGeometries?: Record<string, [number, number][]>;
   alternativeRouteGeometries?: Record<string, [number, number][]>;
+  showTacticalGrid?: boolean;
+  showResponseRings?: boolean;
+  simulateFleetMovement?: boolean;
+  activeTrackingVehicleId?: string | null;
+  showRadarSweep?: boolean;
+  onVehicleTelemetryUpdate?: (
+    vehicleId: string,
+    telemetry: {
+      currentCoord: [number, number];
+      speedKmh: number;
+      headingDeg: number;
+      distanceRemainingKm: number;
+      etaMin: number;
+      progressPct: number;
+    }
+  ) => void;
   layerFilters?: {
     incidents?: boolean;
     resources?: boolean;
@@ -48,6 +65,20 @@ interface MapViewProps {
     hazardZones?: boolean;
     [key: string]: boolean | undefined;
   };
+}
+
+// ─── Tactical GeoJSON Generator Helpers ─────────────────────────────────────
+function createGeoJSONCircle(center: [number, number], radiusKm: number, points = 64): [number, number][] {
+  const coords: [number, number][] = [];
+  const distanceX = radiusKm / (111.32 * Math.cos((center[1] * Math.PI) / 180));
+  const distanceY = radiusKm / 110.574;
+  for (let i = 0; i <= points; i++) {
+    const theta = (i / points) * (2 * Math.PI);
+    const x = distanceX * Math.cos(theta);
+    const y = distanceY * Math.sin(theta);
+    coords.push([Number((center[0] + x).toFixed(5)), Number((center[1] + y).toFixed(5))]);
+  }
+  return coords;
 }
 
 export const MapView: React.FC<MapViewProps> = ({
@@ -68,8 +99,15 @@ export const MapView: React.FC<MapViewProps> = ({
   onSelectIncident,
   onSelectShelter,
   onSelectVehicle,
+  onSelectResource,
   routeGeometries = {},
   alternativeRouteGeometries = {},
+  showTacticalGrid = false,
+  showResponseRings = false,
+  simulateFleetMovement = true,
+  activeTrackingVehicleId = null,
+  showRadarSweep = false,
+  onVehicleTelemetryUpdate,
   layerFilters = {
     incidents: true,
     resources: true,
@@ -84,10 +122,22 @@ export const MapView: React.FC<MapViewProps> = ({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const incidentMarkerEls = useRef<Map<string, HTMLElement>>(new Map());
+  const vehicleMarkerItems = useRef<Map<string, { marker: maplibregl.Marker; arrowEl: HTMLElement | null; vehicle: Vehicle }>>(new Map());
+  const vehicleProgressRef = useRef<Map<string, number>>(new Map());
 
   const [currentBasemap, setCurrentBasemap] = useState<BasemapMode>(defaultBasemap);
   const [is3DMode, setIs3DMode] = useState<boolean>(false);
   const [mapLoaded, setMapLoaded] = useState<boolean>(false);
+
+  const [tacticalGridActive, setTacticalGridActive] = useState<boolean>(showTacticalGrid);
+  const [responseRingsActive, setResponseRingsActive] = useState<boolean>(showResponseRings);
+  const [fleetSimActive, setFleetSimActive] = useState<boolean>(simulateFleetMovement);
+  const [radarSweepActive, setRadarSweepActive] = useState<boolean>(showRadarSweep);
+
+  useEffect(() => { setTacticalGridActive(showTacticalGrid); }, [showTacticalGrid]);
+  useEffect(() => { setResponseRingsActive(showResponseRings); }, [showResponseRings]);
+  useEffect(() => { setFleetSimActive(simulateFleetMovement); }, [simulateFleetMovement]);
+  useEffect(() => { setRadarSweepActive(showRadarSweep); }, [showRadarSweep]);
 
   // ─── 1. Initialize Map with High-Resolution Multi-Layer Basemap ────
   useEffect(() => {
@@ -221,8 +271,7 @@ export const MapView: React.FC<MapViewProps> = ({
       minZoom: 4,
       maxZoom: 18,
       pitch: 0,
-      bearing: 0,
-      antialias: true
+      bearing: 0
     });
 
     map.on('load', () => {
@@ -335,7 +384,7 @@ export const MapView: React.FC<MapViewProps> = ({
 
       if (!layerFilters.hazardZones || hazardZones.length === 0) return;
 
-      const geojsonData: GeoJSON.FeatureCollection = {
+      const geojsonData: FeatureCollection = {
         type: 'FeatureCollection',
         features: hazardZones.map(hz => ({
           type: 'Feature',
@@ -394,6 +443,233 @@ export const MapView: React.FC<MapViewProps> = ({
 
     updateHazardZones();
   }, [hazardZones, layerFilters.hazardZones, mapLoaded]);
+
+  // ─── 5b. Tactical Overlays: Response Distance Rings & MGRS Grid ─
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    const ringsSourceId = 'tactical-rings-source';
+    const ringsFillId = 'tactical-rings-fill';
+    const ringsLineId = 'tactical-rings-line';
+
+    const gridSourceId = 'tactical-grid-source';
+    const gridLineId = 'tactical-grid-line';
+
+    const updateTacticalOverlays = () => {
+      // Clean up previous layers
+      if (map.getLayer(ringsFillId)) map.removeLayer(ringsFillId);
+      if (map.getLayer(ringsLineId)) map.removeLayer(ringsLineId);
+      if (map.getSource(ringsSourceId)) map.removeSource(ringsSourceId);
+
+      if (map.getLayer(gridLineId)) map.removeLayer(gridLineId);
+      if (map.getSource(gridSourceId)) map.removeSource(gridSourceId);
+
+      // A. Response Distance Rings (5km & 10km Isochrones around Key Logistics Depots)
+      if (responseRingsActive) {
+        const aiimsHub: [number, number] = [77.2080, 28.5680]; // AIIMS Trauma Depot
+        const ndrfHub: [number, number] = [77.2550, 28.6580]; // Geeta Colony NDRF Hub
+
+        const ringFeatures: any[] = [
+          {
+            type: 'Feature',
+            properties: { id: 'aiims-5k', name: 'AIIMS 5km Rapid Triage Reach', color: '#38bdf8' },
+            geometry: { type: 'Polygon', coordinates: [createGeoJSONCircle(aiimsHub, 5)] }
+          },
+          {
+            type: 'Feature',
+            properties: { id: 'aiims-10k', name: 'AIIMS 10km Response Isochrone', color: '#0284c7' },
+            geometry: { type: 'Polygon', coordinates: [createGeoJSONCircle(aiimsHub, 10)] }
+          },
+          {
+            type: 'Feature',
+            properties: { id: 'ndrf-5k', name: 'NDRF 5km Tactical Deployment Zone', color: '#f59e0b' },
+            geometry: { type: 'Polygon', coordinates: [createGeoJSONCircle(ndrfHub, 5)] }
+          },
+          {
+            type: 'Feature',
+            properties: { id: 'ndrf-10k', name: 'NDRF 10km Evacuation Reach', color: '#ea580c' },
+            geometry: { type: 'Polygon', coordinates: [createGeoJSONCircle(ndrfHub, 10)] }
+          }
+        ];
+
+        map.addSource(ringsSourceId, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: ringFeatures }
+        });
+
+        map.addLayer({
+          id: ringsFillId,
+          type: 'fill',
+          source: ringsSourceId,
+          paint: {
+            'fill-color': ['get', 'color'],
+            'fill-opacity': 0.08
+          }
+        });
+
+        map.addLayer({
+          id: ringsLineId,
+          type: 'line',
+          source: ringsSourceId,
+          paint: {
+            'line-color': ['get', 'color'],
+            'line-width': 1.6,
+            'line-dasharray': [4, 4],
+            'line-opacity': 0.85
+          }
+        });
+      }
+
+      // B. MGRS Tactical Coordinate Grid lines
+      if (tacticalGridActive) {
+        const gridFeatures: any[] = [];
+        // Longitudinal lines
+        for (let lng = 77.05; lng <= 77.40; lng += 0.05) {
+          gridFeatures.push({
+            type: 'Feature',
+            properties: { label: `${lng.toFixed(2)}°E` },
+            geometry: { type: 'LineString', coordinates: [[lng, 28.45], [lng, 28.80]] }
+          });
+        }
+        // Latitudinal lines
+        for (let lat = 28.45; lat <= 28.80; lat += 0.05) {
+          gridFeatures.push({
+            type: 'Feature',
+            properties: { label: `${lat.toFixed(2)}°N` },
+            geometry: { type: 'LineString', coordinates: [[77.05, lat], [77.40, lat]] }
+          });
+        }
+
+        map.addSource(gridSourceId, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: gridFeatures }
+        });
+
+        map.addLayer({
+          id: gridLineId,
+          type: 'line',
+          source: gridSourceId,
+          paint: {
+            'line-color': '#38bdf8',
+            'line-width': 1,
+            'line-dasharray': [2, 6],
+            'line-opacity': 0.35
+          }
+        });
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      updateTacticalOverlays();
+    } else {
+      map.once('style.load', updateTacticalOverlays);
+    }
+  }, [responseRingsActive, tacticalGridActive, mapLoaded]);
+
+  // ─── 5c. Smooth Real-Time Fleet Movement & Telemetry Engine ────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || !fleetSimActive) return;
+
+    let animTimer: number | null = null;
+    let lastTelemetryEmit = 0;
+
+    const stepSimulation = () => {
+      vehicleMarkerItems.current.forEach(({ marker, arrowEl, vehicle }) => {
+        if (vehicle.status !== 'EN_ROUTE' && vehicle.status !== 'DISPATCHED') return;
+
+        const route = routeGeometries[vehicle.id] || (vehicle.destination ? [
+          [vehicle.location.lng, vehicle.location.lat],
+          [(vehicle.location.lng + vehicle.destination.lng) / 2 + 0.012, (vehicle.location.lat + vehicle.destination.lat) / 2 - 0.004],
+          [vehicle.destination.lng, vehicle.destination.lat]
+        ] : null);
+
+        if (!route || route.length < 2) return;
+
+        // Cumulative segment lengths
+        const segLengths: number[] = [];
+        let totalLen = 0;
+        for (let i = 0; i < route.length - 1; i++) {
+          const dx = (route[i + 1][0] - route[i][0]) * 111.32 * Math.cos((route[i][1] * Math.PI) / 180);
+          const dy = (route[i + 1][1] - route[i][1]) * 110.574;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          segLengths.push(d);
+          totalLen += d;
+        }
+
+        if (totalLen <= 0) return;
+
+        // Current progress
+        let progress = vehicleProgressRef.current.get(vehicle.id) ?? 0.05;
+        // Move forward slightly on each tick (~48 km/h)
+        const step = 0.0025;
+        progress += step;
+        if (progress >= 1) progress = 0;
+        vehicleProgressRef.current.set(vehicle.id, progress);
+
+        // Find current point along route
+        const targetDist = progress * totalLen;
+        let accumDist = 0;
+        let curCoord: [number, number] = route[0];
+        let headingDeg = 0;
+
+        for (let i = 0; i < segLengths.length; i++) {
+          if (accumDist + segLengths[i] >= targetDist) {
+            const segRatio = (targetDist - accumDist) / (segLengths[i] || 1);
+            const p1 = route[i];
+            const p2 = route[i + 1];
+            const lng = p1[0] + (p2[0] - p1[0]) * segRatio;
+            const lat = p1[1] + (p2[1] - p1[1]) * segRatio;
+            curCoord = [lng, lat];
+
+            // Calculate compass heading (0 = North, 90 = East)
+            const angleRad = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
+            headingDeg = (90 - (angleRad * 180) / Math.PI + 360) % 360;
+            break;
+          }
+          accumDist += segLengths[i];
+        }
+
+        // Update maplibre marker position smoothly
+        marker.setLngLat(curCoord);
+
+        // Rotate heading arrow
+        if (arrowEl) {
+          arrowEl.style.transform = `rotate(${Math.round(headingDeg)}deg)`;
+        }
+
+        // Camera auto-tracking if this vehicle is locked
+        if (activeTrackingVehicleId === vehicle.id) {
+          map.easeTo({ center: curCoord, duration: 120 });
+        }
+
+        // Emit telemetry throttled to ~500ms
+        const now = Date.now();
+        if (now - lastTelemetryEmit > 500) {
+          lastTelemetryEmit = now;
+          const remainingKm = Math.max(0.1, Number(((1 - progress) * totalLen).toFixed(1)));
+          const simulatedSpeed = Math.round((vehicle.speedKmh || 48) + Math.sin(now / 1500) * 4);
+          const etaMin = Math.max(1, Math.round(remainingKm / (simulatedSpeed / 60)));
+
+          onVehicleTelemetryUpdate?.(vehicle.id, {
+            currentCoord: curCoord,
+            speedKmh: simulatedSpeed,
+            headingDeg: Math.round(headingDeg),
+            distanceRemainingKm: remainingKm,
+            etaMin,
+            progressPct: Math.round(progress * 100)
+          });
+        }
+      });
+    };
+
+    animTimer = window.setInterval(stepSimulation, 120);
+
+    return () => {
+      if (animTimer !== null) clearInterval(animTimer);
+    };
+  }, [fleetSimActive, mapLoaded, routeGeometries, vehicles, activeTrackingVehicleId, onVehicleTelemetryUpdate]);
 
   // ─── 6. Draw Optimized & Alternative Routes ───────────────────
   useEffect(() => {
@@ -532,6 +808,7 @@ export const MapView: React.FC<MapViewProps> = ({
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
     incidentMarkerEls.current.clear();
+    vehicleMarkerItems.current.clear();
 
     // ── A. Incidents (Red/Coral, Orange/Amber, Green/Teal) ──
     if (layerFilters.incidents) {
@@ -617,10 +894,12 @@ export const MapView: React.FC<MapViewProps> = ({
         core.className = `${styles.markerCore} ${styles.coreVehicle}`;
 
         // Directional heading arrow if moving
-        if (vehicle.status === 'EN_ROUTE') {
+        let arrowEl: HTMLElement | null = null;
+        if (vehicle.status === 'EN_ROUTE' || vehicle.status === 'DISPATCHED') {
           const arrow = document.createElement('div');
           arrow.className = styles.vehicleHeadingArrow;
           core.appendChild(arrow);
+          arrowEl = arrow;
         }
 
         // Vehicle icon
@@ -665,6 +944,7 @@ export const MapView: React.FC<MapViewProps> = ({
           .addTo(map);
 
         markersRef.current.push(marker);
+        vehicleMarkerItems.current.set(vehicle.id, { marker, arrowEl, vehicle });
       });
     }
 
@@ -774,6 +1054,11 @@ export const MapView: React.FC<MapViewProps> = ({
         `;
         el.appendChild(core);
 
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onSelectResource?.(res);
+        });
+
         const popup = new maplibregl.Popup({ offset: 18, closeButton: false })
           .setHTML(`
             <div class="${styles.mapPopup}">
@@ -796,7 +1081,7 @@ export const MapView: React.FC<MapViewProps> = ({
       });
     }
 
-  }, [incidents, resources, vehicles, shelters, responders, layerFilters, onSelectIncident, onSelectShelter, onSelectVehicle]);
+  }, [incidents, resources, vehicles, shelters, responders, layerFilters, onSelectIncident, onSelectShelter, onSelectVehicle, onSelectResource]);
 
   // ─── 8. Handle Hover & Focus Marker Highlighting ──────────────
   useEffect(() => {
@@ -888,9 +1173,49 @@ export const MapView: React.FC<MapViewProps> = ({
         </div>
       )}
 
+      {/* Tactical Radar Sweep Overlay */}
+      {radarSweepActive && (
+        <div className={styles.radarSweepOverlay}>
+          <div className={styles.radarSweepBeam} />
+          <div className={styles.radarSweepCenter} />
+        </div>
+      )}
+
       {/* Floating Tactical Tools (Bottom Right) */}
       {showControls && (
         <div className={styles.mapFloatingTools}>
+          <button
+            type="button"
+            className={`${styles.toolIconBtn} ${fleetSimActive ? styles.toolIconBtnActive : ''}`}
+            onClick={() => setFleetSimActive(!fleetSimActive)}
+            title={fleetSimActive ? "Pause Fleet Telemetry Simulation" : "Resume Fleet Telemetry Simulation"}
+          >
+            {fleetSimActive ? <Pause size={14} /> : <Play size={14} />}
+          </button>
+          <button
+            type="button"
+            className={`${styles.toolIconBtn} ${responseRingsActive ? styles.toolIconBtnActive : ''}`}
+            onClick={() => setResponseRingsActive(!responseRingsActive)}
+            title="Toggle Tactical 5km/10km Response Distance Rings"
+          >
+            <Radio size={14} />
+          </button>
+          <button
+            type="button"
+            className={`${styles.toolIconBtn} ${tacticalGridActive ? styles.toolIconBtnActive : ''}`}
+            onClick={() => setTacticalGridActive(!tacticalGridActive)}
+            title="Toggle MGRS Tactical Coordinate Grid"
+          >
+            <Crosshair size={14} />
+          </button>
+          <button
+            type="button"
+            className={`${styles.toolIconBtn} ${radarSweepActive ? styles.toolIconBtnActive : ''}`}
+            onClick={() => setRadarSweepActive(!radarSweepActive)}
+            title="Toggle Rotary Command Radar Sweep"
+          >
+            <Activity size={14} />
+          </button>
           <button
             type="button"
             className={`${styles.toolIconBtn} ${is3DMode ? styles.toolIconBtnActive : ''}`}

@@ -9,7 +9,10 @@ class Settings(BaseSettings):
     FRONTEND_ORIGIN: str = "http://localhost:5173"
     PORT: int = 8000
     HOST: str = "0.0.0.0"
-    DATABASE_URL: str = "postgresql://saksham:saksham_secure_pass_2026@localhost:5432/saksham_db"
+    DATABASE_URL: str = Field(
+        default="postgresql://localhost:5432/saksham_db",  # placeholder default for local dev
+        description="PostgreSQL connection string (configured via DATABASE_URL env var)",
+    )
 
     # OSRM (road routing) settings.
     # OSRM_ENABLED defaults to False so existing tests/CI keep passing without
