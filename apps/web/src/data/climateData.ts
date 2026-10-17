@@ -297,6 +297,268 @@ export const CLIMATE_NEIGHBORHOODS: ClimateNeighborhood[] = [
   }
 ];
 
+export interface UrbanThermalBlock {
+  id: string;
+  name: string;
+  neighborhoodId: string;
+  buildingType: 'CORRUGATED_TIN' | 'COMMERCIAL_CONCRETE' | 'GOVERNMENT_PUCCA' | 'TRANSIT_TERMINAL' | 'RESIDENTIAL_MASONRY';
+  heightMeters: number;
+  surfaceTempC: number;
+  apparentTempC: number;
+  albedo: number;
+  treeCanopyPct: number;
+  roofType: string;
+  heatStressCategory: 'EXTREME' | 'VERY_HIGH' | 'HIGH' | 'MODERATE' | 'LOW';
+  coolingDeficitPct: number;
+  coordinates: [number, number][][];
+  center: [number, number];
+}
+
+export const URBAN_THERMAL_BLOCKS: UrbanThermalBlock[] = [
+  {
+    id: 'BLDG-SLM-101',
+    name: 'Seelampur Block-C Corrugated Tin Cluster',
+    neighborhoodId: 'ZONE-DL-002',
+    buildingType: 'CORRUGATED_TIN',
+    heightMeters: 26,
+    surfaceTempC: 49.6,
+    apparentTempC: 48.6,
+    albedo: 0.14,
+    treeCanopyPct: 2.1,
+    roofType: 'High Thermal Mass Asbestos & Corrugated Tin',
+    heatStressCategory: 'EXTREME',
+    coolingDeficitPct: 88,
+    coordinates: [[
+      [77.2212, 28.6188],
+      [77.2222, 28.6188],
+      [77.2224, 28.6181],
+      [77.2214, 28.6181],
+      [77.2212, 28.6188]
+    ]],
+    center: [77.2218, 28.6185]
+  },
+  {
+    id: 'BLDG-SLM-102',
+    name: 'Shahdara Commercial Concrete Block',
+    neighborhoodId: 'ZONE-DL-002',
+    buildingType: 'COMMERCIAL_CONCRETE',
+    heightMeters: 44,
+    surfaceTempC: 46.8,
+    apparentTempC: 47.1,
+    albedo: 0.22,
+    treeCanopyPct: 4.5,
+    roofType: 'Dark Bitumen Concrete Slab',
+    heatStressCategory: 'VERY_HIGH',
+    coolingDeficitPct: 76,
+    coordinates: [[
+      [77.2222, 28.6182],
+      [77.2230, 28.6182],
+      [77.2231, 28.6174],
+      [77.2223, 28.6174],
+      [77.2222, 28.6182]
+    ]],
+    center: [77.2226, 28.6178]
+  },
+  {
+    id: 'BLDG-SLM-103',
+    name: 'Seelampur Government School Respite Hub',
+    neighborhoodId: 'ZONE-DL-002',
+    buildingType: 'GOVERNMENT_PUCCA',
+    heightMeters: 18,
+    surfaceTempC: 39.8,
+    apparentTempC: 42.5,
+    albedo: 0.62,
+    treeCanopyPct: 18.0,
+    roofType: 'Solar Reflective Cool-Coated Roof',
+    heatStressCategory: 'MODERATE',
+    coolingDeficitPct: 32,
+    coordinates: [[
+      [77.2212, 28.6179],
+      [77.2219, 28.6179],
+      [77.2220, 28.6172],
+      [77.2213, 28.6172],
+      [77.2212, 28.6179]
+    ]],
+    center: [77.2216, 28.6175]
+  },
+  {
+    id: 'BLDG-YMN-201',
+    name: 'Yamuna Riverbed Informal Tenements',
+    neighborhoodId: 'ZONE-DL-001',
+    buildingType: 'CORRUGATED_TIN',
+    heightMeters: 14,
+    surfaceTempC: 44.2,
+    apparentTempC: 45.1,
+    albedo: 0.16,
+    treeCanopyPct: 6.5,
+    roofType: 'Tin & Tarpaulin Encampment',
+    heatStressCategory: 'HIGH',
+    coolingDeficitPct: 72,
+    coordinates: [[
+      [77.2188, 28.6183],
+      [77.2198, 28.6183],
+      [77.2200, 28.6174],
+      [77.2190, 28.6174],
+      [77.2188, 28.6183]
+    ]],
+    center: [77.2194, 28.6178]
+  },
+  {
+    id: 'BLDG-YMN-202',
+    name: 'Civil Lines Bund Disaster Shelter Block',
+    neighborhoodId: 'ZONE-DL-001',
+    buildingType: 'GOVERNMENT_PUCCA',
+    heightMeters: 28,
+    surfaceTempC: 38.5,
+    apparentTempC: 40.8,
+    albedo: 0.58,
+    treeCanopyPct: 22.0,
+    roofType: 'Reinforced Concrete High-Plinth',
+    heatStressCategory: 'MODERATE',
+    coolingDeficitPct: 28,
+    coordinates: [[
+      [77.2198, 28.6176],
+      [77.2206, 28.6176],
+      [77.2207, 28.6166],
+      [77.2199, 28.6166],
+      [77.2198, 28.6176]
+    ]],
+    center: [77.2202, 28.6171]
+  },
+  {
+    id: 'BLDG-GTC-301',
+    name: 'Geeta Colony Dense Residential Ward',
+    neighborhoodId: 'ZONE-DL-003',
+    buildingType: 'RESIDENTIAL_MASONRY',
+    heightMeters: 34,
+    surfaceTempC: 47.5,
+    apparentTempC: 46.4,
+    albedo: 0.20,
+    treeCanopyPct: 8.5,
+    roofType: 'Exposed Red Clay Brick & Cement',
+    heatStressCategory: 'VERY_HIGH',
+    coolingDeficitPct: 68,
+    coordinates: [[
+      [77.2168, 28.6152],
+      [77.2186, 28.6152],
+      [77.2188, 28.6142],
+      [77.2170, 28.6142],
+      [77.2168, 28.6152]
+    ]],
+    center: [77.2178, 28.6147]
+  },
+  {
+    id: 'BLDG-GTC-302',
+    name: 'Patparganj Arterial Logistics Warehouse',
+    neighborhoodId: 'ZONE-DL-003',
+    buildingType: 'TRANSIT_TERMINAL',
+    heightMeters: 22,
+    surfaceTempC: 48.5,
+    apparentTempC: 47.0,
+    albedo: 0.12,
+    treeCanopyPct: 3.0,
+    roofType: 'Galvanized Sheet Industrial Roof',
+    heatStressCategory: 'EXTREME',
+    coolingDeficitPct: 84,
+    coordinates: [[
+      [77.2184, 28.6146],
+      [77.2196, 28.6146],
+      [77.2198, 28.6136],
+      [77.2186, 28.6136],
+      [77.2184, 28.6146]
+    ]],
+    center: [77.2190, 28.6141]
+  },
+  {
+    id: 'BLDG-KSH-501',
+    name: 'ISBT Multi-Storey Transit Concourse',
+    neighborhoodId: 'ZONE-DL-005',
+    buildingType: 'TRANSIT_TERMINAL',
+    heightMeters: 54,
+    surfaceTempC: 49.2,
+    apparentTempC: 48.0,
+    albedo: 0.18,
+    treeCanopyPct: 5.2,
+    roofType: 'Pre-Cast Concrete & Sheet Canopy',
+    heatStressCategory: 'EXTREME',
+    coolingDeficitPct: 82,
+    coordinates: [[
+      [77.2238, 28.6158],
+      [77.2250, 28.6158],
+      [77.2252, 28.6148],
+      [77.2240, 28.6148],
+      [77.2238, 28.6158]
+    ]],
+    center: [77.2245, 28.6153]
+  },
+  {
+    id: 'BLDG-KSH-502',
+    name: 'Kashmere Gate Metro Transit Concourse',
+    neighborhoodId: 'ZONE-DL-005',
+    buildingType: 'COMMERCIAL_CONCRETE',
+    heightMeters: 36,
+    surfaceTempC: 42.8,
+    apparentTempC: 43.5,
+    albedo: 0.35,
+    treeCanopyPct: 14.0,
+    roofType: 'Reinforced Concrete Insulated Deck',
+    heatStressCategory: 'HIGH',
+    coolingDeficitPct: 45,
+    coordinates: [[
+      [77.2249, 28.6149],
+      [77.2259, 28.6149],
+      [77.2260, 28.6140],
+      [77.2250, 28.6140],
+      [77.2249, 28.6149]
+    ]],
+    center: [77.2254, 28.6144]
+  },
+  {
+    id: 'BLDG-SEC-601',
+    name: 'Central Secretariat Shastri Bhawan Complex',
+    neighborhoodId: 'ZONE-DL-006',
+    buildingType: 'GOVERNMENT_PUCCA',
+    heightMeters: 46,
+    surfaceTempC: 37.2,
+    apparentTempC: 39.5,
+    albedo: 0.45,
+    treeCanopyPct: 38.0,
+    roofType: 'Stone Clad Masonry & Shaded Terrace',
+    heatStressCategory: 'LOW',
+    coolingDeficitPct: 15,
+    coordinates: [[
+      [77.2142, 28.6168],
+      [77.2155, 28.6168],
+      [77.2157, 28.6158],
+      [77.2144, 28.6158],
+      [77.2142, 28.6168]
+    ]],
+    center: [77.2149, 28.6163]
+  },
+  {
+    id: 'BLDG-SEC-602',
+    name: 'Rajpath Shaded Garden & Canopy Pavilion',
+    neighborhoodId: 'ZONE-DL-006',
+    buildingType: 'GOVERNMENT_PUCCA',
+    heightMeters: 16,
+    surfaceTempC: 34.2,
+    apparentTempC: 36.5,
+    albedo: 0.55,
+    treeCanopyPct: 54.0,
+    roofType: 'Green Roof & Tensile Shade Mesh',
+    heatStressCategory: 'LOW',
+    coolingDeficitPct: 8,
+    coordinates: [[
+      [77.2154, 28.6162],
+      [77.2164, 28.6162],
+      [77.2166, 28.6154],
+      [77.2156, 28.6154],
+      [77.2154, 28.6162]
+    ]],
+    center: [77.2160, 28.6158]
+  }
+];
+
 export interface CoolingFacility {
   id: string;
   name: string;

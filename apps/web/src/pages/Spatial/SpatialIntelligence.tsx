@@ -16,7 +16,8 @@ import {
   Waves,
   ShieldAlert,
   FileText,
-  Navigation
+  Navigation,
+  X
 } from 'lucide-react';
 import styles from './SpatialIntelligence.module.css';
 
@@ -24,7 +25,9 @@ import styles from './SpatialIntelligence.module.css';
 import {
   CLIMATE_NEIGHBORHOODS,
   COOLING_FACILITIES,
+  URBAN_THERMAL_BLOCKS,
   type ClimateNeighborhood,
+  type UrbanThermalBlock,
   type CandidateInterventionSite
 } from '../../data/climateData';
 import { mockShelters } from '../../data/mockShelters';
@@ -55,6 +58,13 @@ export const SpatialIntelligence: React.FC = () => {
 
   const { addToast, addManualRequest, addAuditLog } = useOperationalState();
 
+  // ── Primary Geospatial Experience Modes ──
+  // 1. '3D_GIS': Perspective 3D Climate Hazard Map
+  // 2. 'IR_THERMAL': Infrared Thermal Heat Risk Map (LST Sensor)
+  // 3. '2D_FLAT': Orthographic 2D Flat Map
+  const [mapExperience, setMapExperience] = useState<'3D_GIS' | 'IR_THERMAL' | '2D_FLAT'>('3D_GIS');
+  const [thermalSubMetric, setThermalSubMetric] = useState<'LST' | 'HEAT_INDEX' | 'RADIATIVE_TRAP' | 'CANOPY_GAP'>('LST');
+
   // ── UI State Controls ──
   const [viewMode, setViewMode] = useState<'2D' | '3D'>('3D');
   const [activeTab, setActiveTab] = useState<'ALERTS' | 'HEAT_RISK' | 'FLOOD_RISK' | 'CANOPY' | 'POPULATION'>('ALERTS');
@@ -76,8 +86,9 @@ export const SpatialIntelligence: React.FC = () => {
   const [showDepots, setShowDepots] = useState(true);
   const [showIncidents, setShowIncidents] = useState(true);
 
-  // ── Selected Entity ──
-  const [selectedNeighborhood, setSelectedNeighborhood] = useState<ClimateNeighborhood | null>(CLIMATE_NEIGHBORHOODS[0]);
+  // ── Selected Entities ──
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState<ClimateNeighborhood | null>(CLIMATE_NEIGHBORHOODS[1]); // Default Seelampur (Extreme Heat Island)
+  const [selectedBlock, setSelectedBlock] = useState<UrbanThermalBlock | null>(URBAN_THERMAL_BLOCKS[0]);
 
   // ── Live Weather Data ──
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -175,9 +186,9 @@ export const SpatialIntelligence: React.FC = () => {
           type: 'raster',
           source: 'dark-tiles',
           paint: {
-            'raster-brightness-max': 0.6,
-            'raster-saturation': -0.9,
-            'raster-contrast': 0.3
+            'raster-brightness-max': 0.45,
+            'raster-saturation': -1.0,
+            'raster-contrast': 0.4
           }
         }]
       };
@@ -341,10 +352,11 @@ export const SpatialIntelligence: React.FC = () => {
     }
   }, [showShelters, showWaterPoints, showHealthcare, showDepots, showIncidents, addToast]);
 
-  // Idempotent setup of MapLibre layers & sources
+  // Idempotent setup of MapLibre layers & sources (Phases 6.A, 3 & 4)
   const setupMapLayersAndMarkers = useCallback((map: maplibregl.Map) => {
     if (!map) return;
 
+    // 1. Add Climate Neighborhoods GeoJSON
     const geojsonData: FeatureCollection = {
       type: 'FeatureCollection',
       features: CLIMATE_NEIGHBORHOODS.map(n => ({
@@ -370,7 +382,6 @@ export const SpatialIntelligence: React.FC = () => {
       }))
     };
 
-    // 1. Add Source idempotently
     if (!map.getSource('climate-neighborhoods')) {
       map.addSource('climate-neighborhoods', {
         type: 'geojson',
@@ -378,7 +389,7 @@ export const SpatialIntelligence: React.FC = () => {
       });
     }
 
-    // 2. Add 3D Extrusion Layer idempotently
+    // 2. Add Fill Extrusion Layer for Wards
     if (!map.getLayer('climate-extrusion')) {
       map.addLayer({
         id: 'climate-extrusion',
@@ -388,7 +399,7 @@ export const SpatialIntelligence: React.FC = () => {
           'fill-extrusion-color': ['get', 'color'],
           'fill-extrusion-height': ['get', 'height'],
           'fill-extrusion-base': 0,
-          'fill-extrusion-opacity': overlayOpacity / 100
+          'fill-extrusion-opacity': mapExperience === 'IR_THERMAL' ? 0.35 : overlayOpacity / 100
         }
       });
 
@@ -415,31 +426,112 @@ export const SpatialIntelligence: React.FC = () => {
       });
     }
 
-    // 3. Add Line Borders Layer idempotently
+    // 3. Add Line Borders Layer
     if (!map.getLayer('climate-borders')) {
       map.addLayer({
         id: 'climate-borders',
         type: 'line',
         source: 'climate-neighborhoods',
         paint: {
-          'line-color': '#38bdf8',
+          'line-color': mapExperience === 'IR_THERMAL' ? '#f59e0b' : '#38bdf8',
           'line-width': 2.5,
           'line-opacity': 0.9
         }
       });
     }
 
-    // 4. Render markers
+    // 4. Add 3D Urban Thermal Building Blocks GeoJSON Source (Reference Image LiDAR scanning)
+    const thermalBlocksGeoJSON: FeatureCollection = {
+      type: 'FeatureCollection',
+      features: URBAN_THERMAL_BLOCKS.map(b => ({
+        type: 'Feature',
+        properties: {
+          id: b.id,
+          name: b.name,
+          neighborhoodId: b.neighborhoodId,
+          buildingType: b.buildingType,
+          height: b.heightMeters,
+          surfaceTempC: b.surfaceTempC,
+          apparentTempC: b.apparentTempC,
+          albedo: b.albedo,
+          treeCanopyPct: b.treeCanopyPct,
+          roofType: b.roofType,
+          heatStressCategory: b.heatStressCategory,
+          coolingDeficitPct: b.coolingDeficitPct
+        },
+        geometry: {
+          type: 'Polygon',
+          coordinates: b.coordinates
+        }
+      }))
+    };
+
+    if (!map.getSource('urban-thermal-blocks')) {
+      map.addSource('urban-thermal-blocks', {
+        type: 'geojson',
+        data: thermalBlocksGeoJSON
+      });
+    }
+
+    // 5. Add 3D Urban Thermal Blocks Extrusion Layer
+    if (!map.getLayer('thermal-blocks-extrusion')) {
+      map.addLayer({
+        id: 'thermal-blocks-extrusion',
+        type: 'fill-extrusion',
+        source: 'urban-thermal-blocks',
+        paint: {
+          'fill-extrusion-color': [
+            'interpolate',
+            ['linear'],
+            ['get', 'surfaceTempC'],
+            34, '#1e1b4b', // Deep violet / indigo (coolest shaded)
+            37, '#0284c7', // Cool blue
+            39, '#06b6d4', // Cyan
+            41, '#10b981', // Emerald green
+            44, '#eab308', // Amber / bright yellow
+            46, '#f97316', // Fiery orange
+            48, '#ef4444', // Burning red
+            50, '#be123c'  // Extreme magenta anomaly
+          ],
+          'fill-extrusion-height': ['get', 'height'],
+          'fill-extrusion-base': 0,
+          'fill-extrusion-opacity': 0.95
+        }
+      });
+
+      map.on('click', 'thermal-blocks-extrusion', (e) => {
+        if (!e.features || !e.features[0]) return;
+        const props = e.features[0].properties;
+        const foundBlock = URBAN_THERMAL_BLOCKS.find(b => b.id === props?.id);
+        if (foundBlock) {
+          setSelectedBlock(foundBlock);
+          const parent = CLIMATE_NEIGHBORHOODS.find(n => n.id === foundBlock.neighborhoodId);
+          if (parent) setSelectedNeighborhood(parent);
+          map.flyTo({ center: foundBlock.center, zoom: 17.2, pitch: 56, duration: 800 });
+          addToast('INFO', `IR Thermal Sensor Probe: ${foundBlock.name} | LST: ${foundBlock.surfaceTempC}°C | Radiative Trap: ${foundBlock.heatStressCategory} | Roof: ${foundBlock.roofType}`);
+        }
+      });
+
+      map.on('mouseenter', 'thermal-blocks-extrusion', () => {
+        map.getCanvas().style.cursor = 'crosshair';
+      });
+      map.on('mouseleave', 'thermal-blocks-extrusion', () => {
+        map.getCanvas().style.cursor = '';
+      });
+    }
+
+    // 6. Render markers
     renderTacticalMarkers(map);
-  }, [overlayOpacity, viewMode, renderTacticalMarkers]);
+  }, [overlayOpacity, viewMode, mapExperience, renderTacticalMarkers]);
 
   // Initialize MapLibre
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
+    const initialBasemap = mapExperience === 'IR_THERMAL' ? 'DARK' : 'SATELLITE';
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: getBasemapStyleSpec('SATELLITE'),
+      style: getBasemapStyleSpec(initialBasemap),
       center: [77.221, 28.616],
       zoom: 15.6,
       pitch: viewMode === '3D' ? 58 : 0,
@@ -483,6 +575,85 @@ export const SpatialIntelligence: React.FC = () => {
       renderTacticalMarkers(map);
     }
   }, [renderTacticalMarkers]);
+
+  // Mode Transition Handler (IR Thermal vs 3D GIS vs 2D Flat)
+  const handleExperienceModeChange = (mode: '3D_GIS' | 'IR_THERMAL' | '2D_FLAT') => {
+    setMapExperience(mode);
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (mode === 'IR_THERMAL') {
+      setViewMode('3D');
+      setActiveTab('HEAT_RISK');
+      setBasemap('DARK');
+      handleBasemapChange('DARK');
+      map.easeTo({ pitch: 56, bearing: -20, duration: 900 });
+      addToast('INFO', 'Activated IR Sensor / Thermal Heat Risk GIS Mode. Satellite Radiometric LST Telemetry active.');
+    } else if (mode === '3D_GIS') {
+      setViewMode('3D');
+      map.easeTo({ pitch: 58, bearing: -24, duration: 900 });
+      addToast('INFO', 'Switched to 3D Climate Hazard GIS View.');
+    } else {
+      setViewMode('2D');
+      map.easeTo({ pitch: 0, bearing: 0, duration: 900 });
+      addToast('INFO', 'Switched to 2D Orthographic Map.');
+    }
+  };
+
+  // Thermal sub-metric styling updates
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded() || !map.getLayer('thermal-blocks-extrusion')) return;
+
+    try {
+      if (thermalSubMetric === 'LST') {
+        map.setPaintProperty('thermal-blocks-extrusion', 'fill-extrusion-color', [
+          'interpolate',
+          ['linear'],
+          ['get', 'surfaceTempC'],
+          34, '#1e1b4b',
+          37, '#0284c7',
+          39, '#06b6d4',
+          41, '#10b981',
+          44, '#eab308',
+          46, '#f97316',
+          48, '#ef4444',
+          50, '#be123c'
+        ]);
+        map.setPaintProperty('thermal-blocks-extrusion', 'fill-extrusion-height', ['get', 'height']);
+      } else if (thermalSubMetric === 'HEAT_INDEX') {
+        map.setPaintProperty('thermal-blocks-extrusion', 'fill-extrusion-color', [
+          'interpolate',
+          ['linear'],
+          ['get', 'apparentTempC'],
+          36, '#38bdf8',
+          40, '#f59e0b',
+          45, '#ea580c',
+          48, '#7f1d1d'
+        ]);
+        map.setPaintProperty('thermal-blocks-extrusion', 'fill-extrusion-height', ['*', ['get', 'apparentTempC'], 1.2]);
+      } else if (thermalSubMetric === 'RADIATIVE_TRAP') {
+        map.setPaintProperty('thermal-blocks-extrusion', 'fill-extrusion-color', [
+          'case',
+          ['<', ['get', 'albedo'], 0.18], '#be123c', // Low albedo = high heat trap
+          ['<', ['get', 'albedo'], 0.35], '#f97316',
+          '#10b981' // High albedo = cool
+        ]);
+        map.setPaintProperty('thermal-blocks-extrusion', 'fill-extrusion-height', 38);
+      } else if (thermalSubMetric === 'CANOPY_GAP') {
+        map.setPaintProperty('thermal-blocks-extrusion', 'fill-extrusion-color', [
+          'interpolate',
+          ['linear'],
+          ['get', 'coolingDeficitPct'],
+          10, '#10b981',
+          40, '#eab308',
+          70, '#ea580c',
+          85, '#7f1d1d'
+        ]);
+        map.setPaintProperty('thermal-blocks-extrusion', 'fill-extrusion-height', 30);
+      }
+    } catch {}
+  }, [thermalSubMetric]);
 
   // Candidate site preview markers
   useEffect(() => {
@@ -539,20 +710,22 @@ export const SpatialIntelligence: React.FC = () => {
     if (!map || !map.isStyleLoaded() || !map.getLayer('climate-extrusion')) return;
 
     try {
-      if (activeTab === 'HEAT_RISK') {
+      if (activeTab === 'HEAT_RISK' || mapExperience === 'IR_THERMAL') {
         map.setPaintProperty('climate-extrusion', 'fill-extrusion-color', [
           'interpolate',
           ['linear'],
           ['get', 'temp'],
-          38, '#f59e0b',
-          42, '#ea580c',
-          45, '#dc2626',
-          48, '#7f1d1d'
+          38, '#1e1b4b',
+          40, '#06b6d4',
+          42, '#10b981',
+          44, '#eab308',
+          46, '#f97316',
+          48, '#ef4444'
         ]);
         map.setPaintProperty('climate-extrusion', 'fill-extrusion-height', [
           '*',
           ['get', 'temp'],
-          1.8
+          1.6
         ]);
       } else if (activeTab === 'FLOOD_RISK') {
         map.setPaintProperty('climate-extrusion', 'fill-extrusion-color', [
@@ -597,7 +770,7 @@ export const SpatialIntelligence: React.FC = () => {
         map.setPaintProperty('climate-extrusion', 'fill-extrusion-height', ['get', 'height']);
       }
     } catch {}
-  }, [activeTab]);
+  }, [activeTab, mapExperience]);
 
   // Synchronize GeoJSON layer filter with search & severity (Phase 6.C)
   useEffect(() => {
@@ -636,17 +809,6 @@ export const SpatialIntelligence: React.FC = () => {
       map.setPaintProperty('climate-extrusion', 'fill-extrusion-opacity', overlayOpacity / 100);
     }
   }, [overlayOpacity]);
-
-  // 2D / 3D mode transitions
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    if (viewMode === '3D') {
-      map.easeTo({ pitch: 58, bearing: -24, duration: 800 });
-    } else {
-      map.easeTo({ pitch: 0, bearing: 0, duration: 800 });
-    }
-  }, [viewMode]);
 
   // Primary Action 1 Handler: Submit verified relief request
   const handleSubmitNeed = (need: any) => {
@@ -777,20 +939,27 @@ export const SpatialIntelligence: React.FC = () => {
           </button>
         </div>
 
-        {/* Right Section: 2D/3D View Mode Toggle & Telemetry Freshness */}
+        {/* Right Section: Mode Selector (2D Flat, 3D GIS, IR Thermal) (Phase 5) */}
         <div className={styles.hudRight}>
           <div className={styles.viewModeToggle}>
             <button
-              className={`${styles.modeBtn} ${viewMode === '2D' ? styles.modeBtnActive : ''}`}
-              onClick={() => setViewMode('2D')}
+              className={`${styles.modeBtn} ${mapExperience === '2D_FLAT' ? styles.modeBtnActive : ''}`}
+              onClick={() => handleExperienceModeChange('2D_FLAT')}
             >
               2D Flat
             </button>
             <button
-              className={`${styles.modeBtn} ${viewMode === '3D' ? styles.modeBtnActive : ''}`}
-              onClick={() => setViewMode('3D')}
+              className={`${styles.modeBtn} ${mapExperience === '3D_GIS' ? styles.modeBtnActive : ''}`}
+              onClick={() => handleExperienceModeChange('3D_GIS')}
             >
               3D GIS
+            </button>
+            <button
+              className={`${styles.modeBtn} ${mapExperience === 'IR_THERMAL' ? styles.modeBtnActiveThermal : ''}`}
+              onClick={() => handleExperienceModeChange('IR_THERMAL')}
+            >
+              <Flame size={12} className={styles.thermalFlameIcon} />
+              Heat Risk (IR Sensor)
             </button>
           </div>
 
@@ -799,7 +968,10 @@ export const SpatialIntelligence: React.FC = () => {
               <button
                 key={tab}
                 className={`${styles.tabBtn} ${activeTab === tab ? styles.tabBtnActive : ''}`}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  setActiveTab(tab);
+                  if (tab === 'HEAT_RISK') handleExperienceModeChange('IR_THERMAL');
+                }}
               >
                 {tab.replace('_', ' ')}
               </button>
@@ -810,19 +982,32 @@ export const SpatialIntelligence: React.FC = () => {
 
       {/* ── TOP OPERATIONAL SUMMARY METRICS ROW (PHASE 4.C) ── */}
       <div className={styles.topMetricsRow}>
-        <div className={styles.topMetricCard}>
+        <div
+          className={`${styles.topMetricCard} ${mapExperience === 'IR_THERMAL' ? styles.topMetricCardActive : ''}`}
+          onClick={() => handleExperienceModeChange('IR_THERMAL')}
+          style={{ cursor: 'pointer' }}
+          title="Click to launch IR Sensor / Thermal Heat Risk Map"
+        >
           <div className={styles.topMetricHeader}>
             <Flame size={14} className={styles.textWarning} />
-            <span>Heat Risk</span>
+            <span>Heat Risk (Click for IR Thermal)</span>
           </div>
           <strong className={styles.topMetricValue}>{criticalCount} Critical Wards</strong>
           <span className={styles.topMetricSub}>Max Heat Index: 48.6°C (By zone)</span>
         </div>
 
-        <div className={styles.topMetricCard}>
+        <div
+          className={`${styles.topMetricCard} ${mapExperience === '3D_GIS' && activeTab === 'FLOOD_RISK' ? styles.topMetricCardActive : ''}`}
+          onClick={() => {
+            handleExperienceModeChange('3D_GIS');
+            setActiveTab('FLOOD_RISK');
+          }}
+          style={{ cursor: 'pointer' }}
+          title="Click to focus on 3D Flood Inundation GIS"
+        >
           <div className={styles.topMetricHeader}>
             <Waves size={14} className={styles.textInfo} />
-            <span>Flood Risk</span>
+            <span>Flood Risk (Click for 3D Inundation)</span>
           </div>
           <strong className={styles.topMetricValue}>{floodCount} Inundated Wards</strong>
           <span className={styles.topMetricSub}>Yamuna: 205.85m (Warning: 205.33m)</span>
@@ -906,11 +1091,74 @@ export const SpatialIntelligence: React.FC = () => {
         {/* Map Container */}
         <div ref={mapContainerRef} className={styles.mapCanvas} />
 
+        {/* ── DEDICATED IR SENSOR TELEMETRY HUD BANNER (PHASE 3) ── */}
+        {mapExperience === 'IR_THERMAL' && (
+          <div className={styles.thermalHudBanner}>
+            <div className={styles.thermalTelemetryLeft}>
+              <div className={styles.thermalSensorLed} />
+              <div className={styles.thermalSensorTitle}>
+                <strong>TIR SENSOR STREAM: 10.8µm - 12.0µm</strong>
+                <span>Radiometric Land Surface Temperature (LST) Calibration Active</span>
+              </div>
+            </div>
+
+            {/* Thermal Palette Scale */}
+            <div className={styles.thermalScaleWrapper}>
+              <div className={styles.thermalScaleBar} />
+              <div className={styles.thermalScaleLabels}>
+                <span>34°C (Cool)</span>
+                <span>38°C</span>
+                <span>42°C</span>
+                <span>46°C</span>
+                <span>50°C (Extreme)</span>
+              </div>
+            </div>
+
+            {/* Thermal Sub-Metric Toggles */}
+            <div className={styles.thermalSubSelectGroup}>
+              {(['LST', 'HEAT_INDEX', 'RADIATIVE_TRAP', 'CANOPY_GAP'] as const).map(m => (
+                <button
+                  key={m}
+                  onClick={() => setThermalSubMetric(m)}
+                  className={`${styles.thermalSubBtn} ${thermalSubMetric === m ? styles.thermalSubBtnActive : ''}`}
+                >
+                  {m === 'LST' ? 'LST Surface' : m === 'HEAT_INDEX' ? 'Heat Index' : m === 'RADIATIVE_TRAP' ? 'Tin Roof Trap' : 'Canopy Gap'}
+                </button>
+              ))}
+            </div>
+
+            {/* Exit Button */}
+            <button
+              className={styles.thermalExitBtn}
+              onClick={() => handleExperienceModeChange('3D_GIS')}
+            >
+              <X size={12} />
+              Exit IR Thermal
+            </button>
+          </div>
+        )}
+
+        {/* Reticle Overlay when in Thermal Mode */}
+        {mapExperience === 'IR_THERMAL' && (
+          <div className={styles.thermalCrosshairReticle}>
+            <svg width="90" height="90" viewBox="0 0 100 100" fill="none" stroke="#ef4444" strokeWidth="1.5">
+              <circle cx="50" cy="50" r="30" strokeDasharray="3 3" opacity="0.7" />
+              <circle cx="50" cy="50" r="3" fill="#ef4444" />
+              <line x1="50" y1="10" x2="50" y2="35" />
+              <line x1="50" y1="65" x2="50" y2="90" />
+              <line x1="10" y1="50" x2="35" y2="50" />
+              <line x1="65" y1="50" x2="90" y2="50" />
+            </svg>
+          </div>
+        )}
+
         {/* ── LEFT FLOATING HAZARD & LEGEND PANEL ── */}
         <aside className={styles.leftDashboard}>
           <div className={styles.dashHeader}>
             <div className={styles.dashTitleRow}>
-              <h3>CLIMATE HAZARD WATCH</h3>
+              <h3>
+                {mapExperience === 'IR_THERMAL' ? 'THERMAL IR SENSOR MONITOR' : 'CLIMATE HAZARD WATCH'}
+              </h3>
               <span className={styles.auditBadge}>6 Wards Monitored</span>
             </div>
 
@@ -982,28 +1230,57 @@ export const SpatialIntelligence: React.FC = () => {
 
           {/* Hazard Severity Legend */}
           <div className={styles.legendBox}>
-            <span className={styles.legendHeading}>GIS HAZARD SEVERITY LEGEND</span>
+            <span className={styles.legendHeading}>
+              {mapExperience === 'IR_THERMAL' ? 'THERMAL INFRARED (LST) SCALE' : 'GIS HAZARD SEVERITY LEGEND'}
+            </span>
             <div className={styles.legendList}>
-              <div className={styles.legendRow}>
-                <span className={styles.swatchSevere} />
-                <span>Critical Risk: Extreme Heat &gt;44°C or Flood Depth &gt;1.5m</span>
-              </div>
-              <div className={styles.legendRow}>
-                <span className={styles.swatchMod} />
-                <span>High Risk: Severe Heat Stress / Inundation Buffer</span>
-              </div>
-              <div className={styles.legendRow}>
-                <span className={styles.swatchMinor} />
-                <span>Moderate Risk: Urban Canopy Deficit &lt;10%</span>
-              </div>
-              <div className={styles.legendRow}>
-                <span className={styles.swatchClean} />
-                <span>Low Risk: Shaded Resilient Precinct</span>
-              </div>
-              <div className={styles.legendRow}>
-                <span className={styles.swatchLine} />
-                <span>Emergency Evacuation & Logistics Corridor</span>
-              </div>
+              {mapExperience === 'IR_THERMAL' ? (
+                <>
+                  <div className={styles.legendRow}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#be123c' }} />
+                    <span>Extreme Thermal Trap: &gt;48°C (Tin Roof Radiative Trap)</span>
+                  </div>
+                  <div className={styles.legendRow}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#f97316' }} />
+                    <span>Severe Heat Island: 45°C - 48°C (Exposed Concrete & Bitumen)</span>
+                  </div>
+                  <div className={styles.legendRow}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#eab308' }} />
+                    <span>Moderate Heat Stress: 41°C - 44°C</span>
+                  </div>
+                  <div className={styles.legendRow}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#10b981' }} />
+                    <span>Vegetative Shading Respite: 37°C - 40°C</span>
+                  </div>
+                  <div className={styles.legendRow}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#0284c7' }} />
+                    <span>Cool Water & Canopy Buffer: &lt;36°C</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className={styles.legendRow}>
+                    <span className={styles.swatchSevere} />
+                    <span>Critical Risk: Extreme Heat &gt;44°C or Flood Depth &gt;1.5m</span>
+                  </div>
+                  <div className={styles.legendRow}>
+                    <span className={styles.swatchMod} />
+                    <span>High Risk: Severe Heat Stress / Inundation Buffer</span>
+                  </div>
+                  <div className={styles.legendRow}>
+                    <span className={styles.swatchMinor} />
+                    <span>Moderate Risk: Urban Canopy Deficit &lt;10%</span>
+                  </div>
+                  <div className={styles.legendRow}>
+                    <span className={styles.swatchClean} />
+                    <span>Low Risk: Shaded Resilient Precinct</span>
+                  </div>
+                  <div className={styles.legendRow}>
+                    <span className={styles.swatchLine} />
+                    <span>Emergency Evacuation & Logistics Corridor</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </aside>
@@ -1012,10 +1289,18 @@ export const SpatialIntelligence: React.FC = () => {
         <aside className={styles.rightInspector}>
           <div className={styles.inspectorCard}>
             <div className={styles.inspectorHeader}>
-              <div className={styles.insHeaderIcon}><ShieldAlert size={16} /></div>
+              <div className={styles.insHeaderIcon}>
+                {mapExperience === 'IR_THERMAL' ? <Flame size={16} color="#ef4444" /> : <ShieldAlert size={16} />}
+              </div>
               <div>
-                <h4>ZONE CLIMATE INTELLIGENCE</h4>
-                <p>{selectedNeighborhood ? selectedNeighborhood.wardNumber : 'Select a zone on map'}</p>
+                <h4>
+                  {mapExperience === 'IR_THERMAL' ? 'IR THERMAL SENSOR REPORT' : 'ZONE CLIMATE INTELLIGENCE'}
+                </h4>
+                <p>
+                  {mapExperience === 'IR_THERMAL' && selectedBlock
+                    ? `Inspected Footprint: ${selectedBlock.name}`
+                    : selectedNeighborhood ? selectedNeighborhood.wardNumber : 'Select a zone on map'}
+                </p>
               </div>
             </div>
 
@@ -1025,33 +1310,71 @@ export const SpatialIntelligence: React.FC = () => {
                   <span className={`${styles.severityBadge} ${styles['badge' + selectedNeighborhood.severity]}`}>
                     {selectedNeighborhood.severity} RISK ({currentAssessment.compositeScore}/100)
                   </span>
-                  <span className={styles.parcelId}>{selectedNeighborhood.code}</span>
+                  <span className={styles.parcelId}>{selectedBlock?.id ?? selectedNeighborhood.code}</span>
                 </div>
 
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>Zone Name:</span>
-                  <span className={styles.infoVal}>{selectedNeighborhood.name}</span>
-                </div>
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>Dominant Hazard:</span>
-                  <span className={`${styles.infoVal} ${styles.textDanger}`}>{selectedNeighborhood.primaryHazard.replace('_', ' ')}</span>
-                </div>
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>Apparent Heat Index:</span>
-                  <span className={styles.infoVal}>{selectedNeighborhood.apparentTempC}°C (Ambient: {selectedNeighborhood.ambientTempC}°C)</span>
-                </div>
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>Flood Inundation Depth:</span>
-                  <span className={styles.infoVal}>{selectedNeighborhood.floodDepthMeters} meters</span>
-                </div>
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>Tree Canopy Cover:</span>
-                  <span className={styles.infoVal}>{selectedNeighborhood.canopyCoverPct}% (Deficit: {25 - selectedNeighborhood.canopyCoverPct}%)</span>
-                </div>
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>Exposed Population:</span>
-                  <span className={styles.infoVal}>{selectedNeighborhood.exposedPopulation.toLocaleString()} residents</span>
-                </div>
+                {mapExperience === 'IR_THERMAL' && selectedBlock ? (
+                  <>
+                    <div className={styles.infoRow}>
+                      <span className={styles.infoLabel}>3D Structure:</span>
+                      <span className={styles.infoVal}>{selectedBlock.name} ({selectedBlock.heightMeters}m height)</span>
+                    </div>
+                    <div className={styles.infoRow}>
+                      <span className={styles.infoLabel}>Radiometric LST:</span>
+                      <strong className={styles.infoVal} style={{ color: '#ef4444', fontSize: '13px' }}>
+                        {selectedBlock.surfaceTempC}°C (Physical Surface Radiance)
+                      </strong>
+                    </div>
+                    <div className={styles.infoRow}>
+                      <span className={styles.infoLabel}>Roof Thermal Mass:</span>
+                      <span className={styles.infoVal}>{selectedBlock.roofType}</span>
+                    </div>
+                    <div className={styles.infoRow}>
+                      <span className={styles.infoLabel}>Solar Albedo:</span>
+                      <span className={styles.infoVal}>{selectedBlock.albedo} (Reflectance Index)</span>
+                    </div>
+                    <div className={styles.infoRow}>
+                      <span className={styles.infoLabel}>Ambient Dry Bulb:</span>
+                      <span className={styles.infoVal}>{selectedNeighborhood.ambientTempC}°C</span>
+                    </div>
+                    <div className={styles.infoRow}>
+                      <span className={styles.infoLabel}>Apparent Heat Stress:</span>
+                      <span className={styles.infoVal}>{selectedNeighborhood.apparentTempC}°C</span>
+                    </div>
+                    <div className={styles.infoRow}>
+                      <span className={styles.infoLabel}>Microclimate Shade Gap:</span>
+                      <span className={styles.infoVal}>{selectedBlock.coolingDeficitPct}% Deficit</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className={styles.infoRow}>
+                      <span className={styles.infoLabel}>Zone Name:</span>
+                      <span className={styles.infoVal}>{selectedNeighborhood.name}</span>
+                    </div>
+                    <div className={styles.infoRow}>
+                      <span className={styles.infoLabel}>Dominant Hazard:</span>
+                      <span className={`${styles.infoVal} ${styles.textDanger}`}>{selectedNeighborhood.primaryHazard.replace('_', ' ')}</span>
+                    </div>
+                    <div className={styles.infoRow}>
+                      <span className={styles.infoLabel}>Apparent Heat Index:</span>
+                      <span className={styles.infoVal}>{selectedNeighborhood.apparentTempC}°C (Ambient: {selectedNeighborhood.ambientTempC}°C)</span>
+                    </div>
+                    <div className={styles.infoRow}>
+                      <span className={styles.infoLabel}>Flood Inundation Depth:</span>
+                      <span className={styles.infoVal}>{selectedNeighborhood.floodDepthMeters} meters</span>
+                    </div>
+                    <div className={styles.infoRow}>
+                      <span className={styles.infoLabel}>Tree Canopy Cover:</span>
+                      <span className={styles.infoVal}>{selectedNeighborhood.canopyCoverPct}% (Deficit: {25 - selectedNeighborhood.canopyCoverPct}%)</span>
+                    </div>
+                    <div className={styles.infoRow}>
+                      <span className={styles.infoLabel}>Exposed Population:</span>
+                      <span className={styles.infoVal}>{selectedNeighborhood.exposedPopulation.toLocaleString()} residents</span>
+                    </div>
+                  </>
+                )}
+
                 <div className={styles.infoRow}>
                   <span className={styles.infoLabel}>Identified Deficits:</span>
                   <span className={`${styles.infoVal} ${styles.textWarning}`}>
@@ -1060,7 +1383,9 @@ export const SpatialIntelligence: React.FC = () => {
                 </div>
                 <div className={styles.infoRow}>
                   <span className={styles.infoLabel}>Data Source:</span>
-                  <span className={styles.infoVal} style={{ fontSize: '10px' }}>{selectedNeighborhood.dataSource}</span>
+                  <span className={styles.infoVal} style={{ fontSize: '10px' }}>
+                    {mapExperience === 'IR_THERMAL' ? 'MODIS/Sentinel-3 TIR & Landsat-9' : selectedNeighborhood.dataSource}
+                  </span>
                 </div>
                 <div className={styles.infoRow}>
                   <span className={styles.infoLabel}>Freshness:</span>
@@ -1077,7 +1402,7 @@ export const SpatialIntelligence: React.FC = () => {
                   </ul>
                 </div>
 
-                {/* ── EXACTLY THREE PRIMARY OPERATIONAL ACTIONS (PHASE 4.E) ── */}
+                {/* ── EXACTLY THREE PRIMARY OPERATIONAL ACTIONS (PHASE 4.E & 7) ── */}
                 <div className={styles.actionButtons}>
                   {/* Action 1: Create Relief Request */}
                   <button
@@ -1123,7 +1448,7 @@ export const SpatialIntelligence: React.FC = () => {
               <div className={styles.emptyInspector}>
                 <Compass size={28} className={styles.emptyIcon} />
                 <h5>SELECT A ZONE</h5>
-                <p>Click any 3D extruded climate hazard zone on the map to inspect live risk telemetry and trigger operational relief actions.</p>
+                <p>Click any 3D extruded climate hazard zone or building footprint on the map to inspect live risk telemetry and trigger operational relief actions.</p>
               </div>
             )}
           </div>
@@ -1134,7 +1459,7 @@ export const SpatialIntelligence: React.FC = () => {
           <span>HEAT INDEX: {weather?.apparentTemperature ?? 46.2}°C</span>
           <span>HAZARDS MONITORED: {filteredNeighborhoods.length}/{CLIMATE_NEIGHBORHOODS.length}</span>
           <span>SAVED SCENARIOS: {savedScenarios.length}</span>
-          <span>OPEN-METEO SYNC: LIVE</span>
+          <span>SENSOR STREAM: {mapExperience === 'IR_THERMAL' ? 'TIR RADIOMETRIC LST' : 'OPEN-METEO SYNC'}</span>
         </div>
       </div>
 
