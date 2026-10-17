@@ -556,6 +556,292 @@ export const URBAN_THERMAL_BLOCKS: UrbanThermalBlock[] = [
       [77.2154, 28.6162]
     ]],
     center: [77.2160, 28.6158]
+  },
+  {
+    id: 'BLDG-SLM-104',
+    name: 'Seelampur Main Bazaar Retail Enclave',
+    neighborhoodId: 'ZONE-DL-002',
+    buildingType: 'COMMERCIAL_CONCRETE',
+    heightMeters: 38,
+    surfaceTempC: 48.4,
+    apparentTempC: 47.9,
+    albedo: 0.19,
+    treeCanopyPct: 3.2,
+    roofType: 'Dense Bitumen & Sheet Rooftop',
+    heatStressCategory: 'EXTREME',
+    coolingDeficitPct: 84,
+    coordinates: [[
+      [77.2215, 28.6186],
+      [77.2226, 28.6186],
+      [77.2227, 28.6178],
+      [77.2216, 28.6178],
+      [77.2215, 28.6186]
+    ]],
+    center: [77.2221, 28.6182]
+  },
+  {
+    id: 'BLDG-SLM-105',
+    name: 'Shahdara Informal Metal Workshop Row',
+    neighborhoodId: 'ZONE-DL-002',
+    buildingType: 'CORRUGATED_TIN',
+    heightMeters: 22,
+    surfaceTempC: 50.1,
+    apparentTempC: 49.2,
+    albedo: 0.12,
+    treeCanopyPct: 1.5,
+    roofType: 'Uninsulated Galvanized Corrugated Tin',
+    heatStressCategory: 'EXTREME',
+    coolingDeficitPct: 92,
+    coordinates: [[
+      [77.2224, 28.6189],
+      [77.2231, 28.6189],
+      [77.2232, 28.6182],
+      [77.2225, 28.6182],
+      [77.2224, 28.6189]
+    ]],
+    center: [77.2228, 28.6185]
+  },
+  {
+    id: 'BLDG-SLM-106',
+    name: 'Jafrabad High-Density Residential Block',
+    neighborhoodId: 'ZONE-DL-002',
+    buildingType: 'RESIDENTIAL_MASONRY',
+    heightMeters: 32,
+    surfaceTempC: 46.2,
+    apparentTempC: 46.8,
+    albedo: 0.22,
+    treeCanopyPct: 4.8,
+    roofType: 'Exposed Red Clay Brick Slab',
+    heatStressCategory: 'VERY_HIGH',
+    coolingDeficitPct: 74,
+    coordinates: [[
+      [77.2211, 28.6177],
+      [77.2218, 28.6177],
+      [77.2219, 28.6171],
+      [77.2212, 28.6171],
+      [77.2211, 28.6177]
+    ]],
+    center: [77.2215, 28.6174]
+  },
+  {
+    id: 'BLDG-YMN-203',
+    name: 'Yamuna Pushta Water Filtration Pumping Station',
+    neighborhoodId: 'ZONE-DL-001',
+    buildingType: 'GOVERNMENT_PUCCA',
+    heightMeters: 22,
+    surfaceTempC: 41.2,
+    apparentTempC: 42.4,
+    albedo: 0.42,
+    treeCanopyPct: 16.5,
+    roofType: 'Cast Concrete Elevated Plinth Deck',
+    heatStressCategory: 'MODERATE',
+    coolingDeficitPct: 38,
+    coordinates: [[
+      [77.2187, 28.6172],
+      [77.2195, 28.6172],
+      [77.2196, 28.6166],
+      [77.2188, 28.6166],
+      [77.2187, 28.6172]
+    ]],
+    center: [77.2191, 28.6169]
+  },
+  {
+    id: 'BLDG-YMN-204',
+    name: 'Civil Lines Embankment Logistics Depot',
+    neighborhoodId: 'ZONE-DL-001',
+    buildingType: 'TRANSIT_TERMINAL',
+    heightMeters: 30,
+    surfaceTempC: 38.6,
+    apparentTempC: 40.5,
+    albedo: 0.52,
+    treeCanopyPct: 24.0,
+    roofType: 'Solar Reflective Industrial Deck',
+    heatStressCategory: 'MODERATE',
+    coolingDeficitPct: 26,
+    coordinates: [[
+      [77.2201, 28.6184],
+      [77.2208, 28.6184],
+      [77.2209, 28.6176],
+      [77.2202, 28.6176],
+      [77.2201, 28.6184]
+    ]],
+    center: [77.2205, 28.6180]
+  },
+  {
+    id: 'BLDG-GTC-303',
+    name: 'East Delhi Multipurpose Community Center',
+    neighborhoodId: 'ZONE-DL-003',
+    buildingType: 'GOVERNMENT_PUCCA',
+    heightMeters: 28,
+    surfaceTempC: 43.8,
+    apparentTempC: 44.5,
+    albedo: 0.48,
+    treeCanopyPct: 15.0,
+    roofType: 'Insulated Reinforced Slab',
+    heatStressCategory: 'HIGH',
+    coolingDeficitPct: 42,
+    coordinates: [[
+      [77.2172, 28.6150],
+      [77.2180, 28.6150],
+      [77.2181, 28.6143],
+      [77.2173, 28.6143],
+      [77.2172, 28.6150]
+    ]],
+    center: [77.2176, 28.6146]
+  },
+  {
+    id: 'BLDG-GTC-304',
+    name: 'Chander Nagar Shaded Healthcare Sub-Center',
+    neighborhoodId: 'ZONE-DL-003',
+    buildingType: 'GOVERNMENT_PUCCA',
+    heightMeters: 18,
+    surfaceTempC: 37.4,
+    apparentTempC: 39.8,
+    albedo: 0.65,
+    treeCanopyPct: 32.0,
+    roofType: 'High-Albedo Cool Elastomeric Membrane',
+    heatStressCategory: 'LOW',
+    coolingDeficitPct: 18,
+    coordinates: [[
+      [77.2188, 28.6141],
+      [77.2196, 28.6141],
+      [77.2197, 28.6135],
+      [77.2189, 28.6135],
+      [77.2188, 28.6141]
+    ]],
+    center: [77.2192, 28.6138]
+  },
+  {
+    id: 'BLDG-RHN-401',
+    name: 'Rohini Low-Plinth Settlement Cluster A',
+    neighborhoodId: 'ZONE-DL-004',
+    buildingType: 'CORRUGATED_TIN',
+    heightMeters: 20,
+    surfaceTempC: 45.8,
+    apparentTempC: 46.2,
+    albedo: 0.18,
+    treeCanopyPct: 6.0,
+    roofType: 'Low-Slope Sheet & Bitumen Felt',
+    heatStressCategory: 'VERY_HIGH',
+    coolingDeficitPct: 78,
+    coordinates: [[
+      [77.2192, 28.6143],
+      [77.2202, 28.6143],
+      [77.2203, 28.6136],
+      [77.2193, 28.6136],
+      [77.2192, 28.6143]
+    ]],
+    center: [77.2197, 28.6140]
+  },
+  {
+    id: 'BLDG-RHN-402',
+    name: 'Rohini Sector 16 Stormwater Pump Block',
+    neighborhoodId: 'ZONE-DL-004',
+    buildingType: 'GOVERNMENT_PUCCA',
+    heightMeters: 26,
+    surfaceTempC: 41.5,
+    apparentTempC: 42.0,
+    albedo: 0.44,
+    treeCanopyPct: 18.0,
+    roofType: 'Industrial Heavy Masonry Slab',
+    heatStressCategory: 'MODERATE',
+    coolingDeficitPct: 35,
+    coordinates: [[
+      [77.2202, 28.6138],
+      [77.2210, 28.6138],
+      [77.2211, 28.6130],
+      [77.2203, 28.6130],
+      [77.2202, 28.6138]
+    ]],
+    center: [77.2206, 28.6134]
+  },
+  {
+    id: 'BLDG-KSH-503',
+    name: 'Old Delhi Rail Terminal Transit Concourse',
+    neighborhoodId: 'ZONE-DL-005',
+    buildingType: 'TRANSIT_TERMINAL',
+    heightMeters: 42,
+    surfaceTempC: 49.5,
+    apparentTempC: 48.8,
+    albedo: 0.16,
+    treeCanopyPct: 4.0,
+    roofType: 'Industrial Galvanized Steel Concourse',
+    heatStressCategory: 'EXTREME',
+    coolingDeficitPct: 86,
+    coordinates: [[
+      [77.2242, 28.6152],
+      [77.2254, 28.6152],
+      [77.2255, 28.6144],
+      [77.2243, 28.6144],
+      [77.2242, 28.6152]
+    ]],
+    center: [77.2248, 28.6148]
+  },
+  {
+    id: 'BLDG-KSH-504',
+    name: 'St. James Shaded Heritage Respite Precinct',
+    neighborhoodId: 'ZONE-DL-005',
+    buildingType: 'GOVERNMENT_PUCCA',
+    heightMeters: 18,
+    surfaceTempC: 36.2,
+    apparentTempC: 38.4,
+    albedo: 0.58,
+    treeCanopyPct: 42.0,
+    roofType: 'Lime Mortar Heritage Dome & Dense Canopy',
+    heatStressCategory: 'LOW',
+    coolingDeficitPct: 12,
+    coordinates: [[
+      [77.2252, 28.6159],
+      [77.2261, 28.6159],
+      [77.2262, 28.6151],
+      [77.2253, 28.6151],
+      [77.2252, 28.6159]
+    ]],
+    center: [77.2257, 28.6155]
+  },
+  {
+    id: 'BLDG-SEC-603',
+    name: 'Nirman Bhawan Urban Development Directorate',
+    neighborhoodId: 'ZONE-DL-006',
+    buildingType: 'GOVERNMENT_PUCCA',
+    heightMeters: 56,
+    surfaceTempC: 38.1,
+    apparentTempC: 40.2,
+    albedo: 0.44,
+    treeCanopyPct: 36.0,
+    roofType: 'Sandstone Clad Reinforced Pucca Slab',
+    heatStressCategory: 'LOW',
+    coolingDeficitPct: 16,
+    coordinates: [[
+      [77.2145, 28.6166],
+      [77.2158, 28.6166],
+      [77.2160, 28.6157],
+      [77.2147, 28.6157],
+      [77.2145, 28.6166]
+    ]],
+    center: [77.2152, 28.6161]
+  },
+  {
+    id: 'BLDG-SEC-604',
+    name: 'National Archives Resilient Document Vault',
+    neighborhoodId: 'ZONE-DL-006',
+    buildingType: 'GOVERNMENT_PUCCA',
+    heightMeters: 36,
+    surfaceTempC: 35.4,
+    apparentTempC: 37.8,
+    albedo: 0.62,
+    treeCanopyPct: 48.0,
+    roofType: 'Insulated Double-Skin High Albedo Roof',
+    heatStressCategory: 'LOW',
+    coolingDeficitPct: 10,
+    coordinates: [[
+      [77.2158, 28.6169],
+      [77.2166, 28.6169],
+      [77.2167, 28.6161],
+      [77.2159, 28.6161],
+      [77.2158, 28.6169]
+    ]],
+    center: [77.2162, 28.6165]
   }
 ];
 

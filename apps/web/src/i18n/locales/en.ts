@@ -399,7 +399,7 @@ export const en = {
     helplines: "Helplines & Support",
     officerLogin: "Officer Portal",
     networkOnline: "RESPONSE NETWORK ONLINE",
-    copyright: "© 2026 SAKSHAM. Designed for SIH 2026. All rights reserved.",
+    copyright: "© 2026 SAKSHAM.",
     systemStatus: "SAKSHAM RESPONSE NETWORK · SYSTEM STATUS / ONLINE",
   },
   help: {
