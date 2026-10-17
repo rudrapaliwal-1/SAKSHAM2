@@ -91,41 +91,57 @@ from app.repositories.postgres.vehicle_repository import SqlAlchemyVehicleReposi
 from app.repositories.postgres.allocation_repository import SqlAlchemyAllocationRepository
 from app.repositories.postgres.dispatch_repository import SqlAlchemyDispatchRepository
 
+from sqlalchemy import text
+
+def _check_db(db: Session) -> bool:
+    try:
+        db.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        return False
+
 def get_incident_service(db: Session = Depends(get_db)) -> IncidentService:
-    repo = SqlAlchemyIncidentRepository(db)
-    return IncidentService(repo)
+    if _check_db(db):
+        return IncidentService(SqlAlchemyIncidentRepository(db))
+    return IncidentService(incident_repo)
 
 def get_demand_service(db: Session = Depends(get_db)) -> DemandService:
-    repo = SqlAlchemyDemandRepository(db)
-    return DemandService(repo)
+    if _check_db(db):
+        return DemandService(SqlAlchemyDemandRepository(db))
+    return DemandService(demand_repo)
 
 def get_resource_service(db: Session = Depends(get_db)) -> ResourceService:
-    repo = SqlAlchemyResourceRepository(db)
-    return ResourceService(repo)
+    if _check_db(db):
+        return ResourceService(SqlAlchemyResourceRepository(db))
+    return ResourceService(resource_repo)
 
 def get_vehicle_service(db: Session = Depends(get_db)) -> VehicleService:
-    repo = SqlAlchemyVehicleRepository(db)
-    return VehicleService(repo)
+    if _check_db(db):
+        return VehicleService(SqlAlchemyVehicleRepository(db))
+    return VehicleService(vehicle_repo)
 
 def get_matching_service(db: Session = Depends(get_db)) -> MatchingService:
-    demand = SqlAlchemyDemandRepository(db)
-    resource = SqlAlchemyResourceRepository(db)
-    return MatchingService(demand, resource)
+    if _check_db(db):
+        return MatchingService(SqlAlchemyDemandRepository(db), SqlAlchemyResourceRepository(db))
+    return MatchingService(demand_repo, resource_repo)
 
 def get_allocation_service(db: Session = Depends(get_db)) -> AllocationService:
-    alloc = SqlAlchemyAllocationRepository(db)
-    demand = SqlAlchemyDemandRepository(db)
-    resource = SqlAlchemyResourceRepository(db)
-    return AllocationService(alloc, demand, resource)
+    if _check_db(db):
+        return AllocationService(SqlAlchemyAllocationRepository(db), SqlAlchemyDemandRepository(db), SqlAlchemyResourceRepository(db))
+    return AllocationService(allocation_repo, demand_repo, resource_repo)
 
 def get_dispatch_service(db: Session = Depends(get_db)) -> DispatchService:
-    dispatch = SqlAlchemyDispatchRepository(db)
-    alloc = SqlAlchemyAllocationRepository(db)
-    vehicle = SqlAlchemyVehicleRepository(db)
-    resource = SqlAlchemyResourceRepository(db)
-    demand = SqlAlchemyDemandRepository(db)
-    incident = SqlAlchemyIncidentRepository(db)
-    return DispatchService(dispatch, alloc, vehicle, resource, demand, incident)
+    if _check_db(db):
+        return DispatchService(
+            SqlAlchemyDispatchRepository(db),
+            SqlAlchemyAllocationRepository(db),
+            SqlAlchemyVehicleRepository(db),
+            SqlAlchemyResourceRepository(db),
+            SqlAlchemyDemandRepository(db),
+            SqlAlchemyIncidentRepository(db)
+        )
+    return DispatchService(dispatch_repo, allocation_repo, vehicle_repo, resource_repo, demand_repo, incident_repo)
+
 
 from app.repositories.postgres.delivery_repository import SqlAlchemyDeliveryRepository
 from app.repositories.postgres.shelter_repository import SqlAlchemyShelterRepository
@@ -133,24 +149,32 @@ from app.domain.shelter.service import ShelterService
 from app.domain.routing.service import RoutingService
 
 def get_routing_service(db: Session = Depends(get_db)) -> RoutingService:
-    dispatch = SqlAlchemyDispatchRepository(db)
-    alloc = SqlAlchemyAllocationRepository(db)
-    vehicle = SqlAlchemyVehicleRepository(db)
-    resource = SqlAlchemyResourceRepository(db)
-    demand = SqlAlchemyDemandRepository(db)
-    incident = SqlAlchemyIncidentRepository(db)
-    return RoutingService(dispatch, alloc, vehicle, resource, demand, incident)
+    if _check_db(db):
+        return RoutingService(
+            SqlAlchemyDispatchRepository(db),
+            SqlAlchemyAllocationRepository(db),
+            SqlAlchemyVehicleRepository(db),
+            SqlAlchemyResourceRepository(db),
+            SqlAlchemyDemandRepository(db),
+            SqlAlchemyIncidentRepository(db)
+        )
+    return RoutingService(dispatch_repo, allocation_repo, vehicle_repo, resource_repo, demand_repo, incident_repo)
 
 def get_delivery_service(db: Session = Depends(get_db)) -> DeliveryService:
-    delivery = SqlAlchemyDeliveryRepository(db)
-    dispatch = SqlAlchemyDispatchRepository(db)
-    alloc = SqlAlchemyAllocationRepository(db)
-    vehicle = SqlAlchemyVehicleRepository(db)
-    resource = SqlAlchemyResourceRepository(db)
-    demand = SqlAlchemyDemandRepository(db)
-    incident = SqlAlchemyIncidentRepository(db)
-    return DeliveryService(delivery, dispatch, alloc, vehicle, resource, demand, incident)
+    if _check_db(db):
+        return DeliveryService(
+            SqlAlchemyDeliveryRepository(db),
+            SqlAlchemyDispatchRepository(db),
+            SqlAlchemyAllocationRepository(db),
+            SqlAlchemyVehicleRepository(db),
+            SqlAlchemyResourceRepository(db),
+            SqlAlchemyDemandRepository(db),
+            SqlAlchemyIncidentRepository(db)
+        )
+    return DeliveryService(None, dispatch_repo, allocation_repo, vehicle_repo, resource_repo, demand_repo, incident_repo)
 
 def get_shelter_service(db: Session = Depends(get_db)) -> ShelterService:
-    repo = SqlAlchemyShelterRepository(db)
-    return ShelterService(repo)
+    if _check_db(db):
+        return ShelterService(SqlAlchemyShelterRepository(db))
+    return ShelterService(None)
+

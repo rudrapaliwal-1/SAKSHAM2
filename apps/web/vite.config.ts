@@ -8,6 +8,8 @@ export default defineConfig({
     exclude: ['maplibre-gl']
   },
   server: {
+    host: true,
+    allowedHosts: true,
     headers: {
       'Cache-Control': 'no-store',
     },
